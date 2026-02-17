@@ -4,7 +4,7 @@ set -euo pipefail
 IMAGE_NAME=${IMAGE_NAME:-swagger2krakend}
 WORKDIR=${WORKDIR:-"$(pwd)/.."}
 
-INPUT_YAML=${1:-krakend/config/krakend.json}
+INPUT_YAML=${1:-krakend/config/swagger.yaml}
 OUTPUT_JSON=${2:-krakend/config/krakend.json}
 
 KEYCLOAK_URL=${KEYCLOAK_URL:-http://keycloak:8080}
