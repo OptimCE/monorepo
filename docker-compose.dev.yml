@@ -153,6 +153,12 @@ services:
     build:
       context: crm-frontend
       dockerfile: Dockerfile
+      args:
+        FRONTEND_API_URL: ${FRONTEND_API_URL:-http://localhost:3000}
+        FRONTEND_BASE_PATH: ${FRONTEND_BASE_PATH:-http://localhost:4200}
+        FRONTEND_KEYCLOAK_REALM: ${FRONTEND_KEYCLOAK_REALM:-optimce-realm}
+        FRONTEND_KEYCLOAK_URL: ${FRONTEND_KEYCLOAK_URL:-http://localhost:8080}
+        FRONTEND_KEYCLOAK_CLIENT_ID: ${FRONTEND_KEYCLOAK_CLIENT_ID:-optimce-frontend}
     environment:
       - NODE_ENV=production
     ports:
