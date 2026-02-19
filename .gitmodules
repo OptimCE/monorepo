@@ -1,12 +1,12 @@
 [submodule "crm-backend"]
 	path = crm-backend
-	url = git@github.com:OptimCE/crm-backend.git
+	url = ../crm-backend.git
 [submodule "crm-frontend"]
 	path = crm-frontend
-	url = git@github.com:OptimCE/crm-frontend.git
+	url = ../crm-frontend.git
 [submodule "keycloak/kc-groupid-mapper"]
 	path = keycloak/kc-groupid-mapper
-	url = git@github.com:OptimCE/kc-groupid-mapper.git
+	url = ../kc-groupid-mapper.git
 [submodule "krakend/swagger2krakend"]
 	path = krakend/swagger2krakend
-	url = git@github.com:OptimCE/swagger2krakend.git
+	url = ../swagger2krakend.git
