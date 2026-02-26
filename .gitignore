@@ -1,0 +1,3 @@
+ansible/inventories/**/hosts.yml
+!ansible/inventories/**/*.example.yml
+ansible/collections/ansible_collections/**

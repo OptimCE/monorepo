@@ -1,0 +1,25 @@
+# Require passwordless SSH access to all hosts with a root or equivalent lvl of right
+# https://github.com/k3s-io/k3s-ansible
+all:
+  children:
+    k3s_server:
+      hosts:
+        server1:
+          ansible_host: 10.0.0.10
+          ansible_user: root
+          ansible_ssh_private_key_file: ~/.ssh/k3s_key
+
+    k3s_agent:
+      hosts:
+        worker1:
+          ansible_host: 10.0.0.11
+          ansible_user: root
+          ansible_ssh_private_key_file: ~/.ssh/k3s_key
+        worker2:
+          ansible_host: 10.0.0.12
+          ansible_user: root
+          ansible_ssh_private_key_file: ~/.ssh/k3s_key
+        worker3:                 
+          ansible_host: 10.0.0.13
+          ansible_user: root
+          ansible_ssh_private_key_file: ~/.ssh/k3s_key
