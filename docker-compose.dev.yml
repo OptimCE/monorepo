@@ -51,6 +51,7 @@ services:
       - "8080:8080"
     networks:
       - keycloak
+      - api-gateway
       - reverse-proxy
     depends_on:
       - keycloak-db
@@ -75,7 +76,7 @@ services:
       - COLLECTOR_OTLP_ENABLED=true
     networks:
       - opentelemetry
-
+    
   krakend:
     image: krakend:latest
     ports:
@@ -100,7 +101,7 @@ services:
     image: certbot/certbot:latest
     volumes:
       - ./nginx/certs:/etc/letsencrypt
-    command: certonly --webroot --webroot-path=/var/www/certbot --d yourdomain.com --email your-email@example.com
+    command: certonly --webroot --webroot-path=/var/www/certbot --d optimce.be --email adminl@optimce.be
 
   crm-backend:
     build:
@@ -148,17 +149,25 @@ services:
       - keycloak
       - openfiles
       - jaeger
+  crm-frontend-config:
+    image: alpine:latest
+    env_file:
+      - .env.dev
+    volumes:
+      - ./crm-frontend-config:/config
+    command:
+      - sh
+      - -c
+      - |
+        apk add --no-cache gettext
+        envsubst < /config/config.template.json > /config/config.json
 
   crm-frontend:
     build:
       context: crm-frontend
       dockerfile: Dockerfile
-      args:
-        FRONTEND_API_URL: ${FRONTEND_API_URL:-http://localhost:3000}
-        FRONTEND_BASE_PATH: ${FRONTEND_BASE_PATH:-http://localhost:4200}
-        FRONTEND_KEYCLOAK_REALM: ${FRONTEND_KEYCLOAK_REALM:-optimce-realm}
-        FRONTEND_KEYCLOAK_URL: ${FRONTEND_KEYCLOAK_URL:-http://localhost:8080}
-        FRONTEND_KEYCLOAK_CLIENT_ID: ${FRONTEND_KEYCLOAK_CLIENT_ID:-optimce-frontend}
+    volumes:
+      - ./crm-frontend-config/config.json:/usr/share/nginx/html/assets/config/config.json
     environment:
       - NODE_ENV=production
     ports:
@@ -166,7 +175,8 @@ services:
     networks:
       - reverse-proxy
     depends_on:
-      - crm-backend
+      crm-frontend-config:
+        condition: service_completed_successfully
 
 networks:
   reverse-proxy:
