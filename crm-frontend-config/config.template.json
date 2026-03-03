@@ -1,0 +1,11 @@
+{
+	"apiUrl": "${FRONTEND_API_URL}",
+	"basePath": "${FRONTEND_BASE_PATH}",
+	"keycloak": {
+		"realm": "${FRONTEND_KEYCLOAK_REALM}",
+		"url": "${FRONTEND_KEYCLOAK_URL}",
+		"clientId": "${FRONTEND_KEYCLOAK_CLIENT_ID}",
+		"urlPattern": "^(${FRONTEND_API_URL})(/.*)?$",
+		"urlPatternFlags": "i"
+	}
+}
