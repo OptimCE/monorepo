@@ -77,6 +77,30 @@ services:
     networks:
       - opentelemetry
     
+  swagger-doc-gen:
+    build:
+      context: crm-backend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./krakend/config:/app/docs/openapi
+    command:   npm run swagger
+
+  krakend-config:
+    build:
+      context: krakend/swagger2krakend
+      dockerfile: Dockerfile
+    volumes:
+      - ./krakend/config:/config
+    environment:
+      - SWAGGER_FILE=/config/swagger.yaml
+      - OUTPUT_FILE=/config/krakend.json
+      - KEYCLOAK_URL=http://keycloak:8080
+      - REALM_NAME=optimce-realm
+      - BACKEND_HOST=http://crm-backend:80
+      - ISSUER_URL=http://keycloak:8080/realms/optimce-realm
+    depends_on:
+      - swagger-doc-gen
+
   krakend:
     image: krakend:latest
     ports:
@@ -85,6 +109,8 @@ services:
       - ./krakend/config:/etc/krakend
     networks:
       - api-gateway
+    depends_on:
+      - krakend-config
 
   reverse-proxy:
     image: nginx:latest
