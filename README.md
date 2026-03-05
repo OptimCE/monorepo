@@ -50,34 +50,87 @@ Si vous souhaitez modifier le schéma de base de données, éditez les fichiers 
 Pour démarrer tous les services, utilisez la commande suivante :
 
 ```bash
-docker-compose -f docker-compose.dev.yml --env-file .env.dev up
+docker compose -f docker-compose.dev.yml --env-file .env.dev up
 ```
 
 Pour lancer en mode détaché (background) :
 
 ```bash
-docker-compose -f docker-compose.dev.yml --env-file .env.dev up -d
+docker compose -f docker-compose.dev.yml --env-file .env.dev up -d
 ```
 
 Pour reconstruire les images avant de lancer :
 
 ```bash
-docker-compose -f docker-compose.dev.yml --env-file .env.dev up --build
+docker compose -f docker-compose.dev.yml --env-file .env.dev up --build
 ```
+
+## Déploiement en Production
+
+Le fichier `docker-compose.yml` est configuré pour un déploiement en production sur un seul nœud. Il utilise des profils pour séparer l'initialisation de la configuration et le lancement de l'application.
+
+### Étape 1 : Initialisation
+
+Cette étape télécharge le fichier `swagger.yaml` et génère la configuration `krakend.json`. Vous ne devez l'exécuter qu'une seule fois, ou lorsque la définition de swagger change.
+
+Pour lancer l'étape d'initialisation, utilisez la commande suivante :
+
+```bash
+docker compose up --profile init
+```
+
+Les services du profil `init` (`swagger-doc-gen` et `krakend-config`) s'exécuteront puis s'arrêteront une fois terminés.
+
+### Étape 2 : Lancement de l'application
+
+Une fois l'initialisation terminée, vous pouvez démarrer les services principaux de l'application.
+
+#### Lancement par profils
+
+Vous pouvez lancer des parties spécifiques de l'application en utilisant les profils `backend` ou `frontend`.
+
+-   **Pour lancer uniquement le backend :**
+    ```bash
+    docker compose up --profile backend -d
+    ```
+
+-   **Pour lancer uniquement le frontend :**
+    > **Note :** Le frontend a besoin du backend pour fonctionner correctement.
+    ```bash
+    docker compose up --profile frontend -d
+    ```
+
+-   **Pour lancer toute l'application (backend et frontend) :**
+    ```bash
+    docker compose up --profile backend --profile frontend -d
+    ```
+
+### Arrêt de l'application
+
+Pour arrêter tous les services :
+
+```bash
+docker compose down
+```
+
+### Résumé du workflow de production
+
+1.  Exécutez `docker compose up --profile init` pour préparer la configuration.
+2.  Exécutez `docker compose up --profile backend --profile frontend -d` pour démarrer l'application.
 
 ## Arrêt des services
 
 Pour arrêter tous les services :
 
 ```bash
-docker-compose -f docker-compose.dev.yml down
+docker compose -f docker-compose.dev.yml down
 ```
 
 Pour réinitialiser complètement les bases de données, arrêtez et supprimez les conteneurs :
 
 ```bash
-docker-compose -f docker-compose.dev.yml down
-docker-compose -f docker-compose.dev.yml --env-file .env.dev up
+docker compose -f docker-compose.dev.yml down
+docker compose -f docker-compose.dev.yml --env-file .env.dev up
 ```
 
 Les scripts d'initialisation seront réexécutés automatiquement au prochain démarrage.
@@ -102,4 +155,4 @@ Les scripts d'initialisation seront réexécutés automatiquement au prochain d�
 
 ## Note importante
 
-⚠️ **Il est essentiel d'utiliser l'option `--env-file .env.dev`** lors du lancement avec `docker-compose` pour que les substitutions de variables `${VAR}` dans le fichier docker-compose.dev.yml soient correctement résolues.
+⚠️ **Il est essentiel d'utiliser l'option `--env-file .env.dev`** lors du lancement avec `docker compose` pour que les substitutions de variables `${VAR}` dans le fichier docker-compose.dev.yml soient correctement résolues.
