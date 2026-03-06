@@ -34,7 +34,7 @@ services:
       context: keycloak
       dockerfile: Dockerfile
     restart: unless-stopped
-    command: ["start", "--import-realm", "--verbose"]
+    command: ["start", "--import-realm", "--verbose" ]
     environment:
       - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN:-admin}
       - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
@@ -44,16 +44,34 @@ services:
       - KC_DB_USERNAME=${KC_DB_USERNAME:-postgres}
       - KC_DB_PASSWORD=${KC_DB_PASSWORD}
       - KC_HOSTNAME=${KC_HOSTNAME:-localhost}
-      - KC_HTTP_ENABLED=true
-      - KC_PROXY=edge
+      - KC_HTTP_ENABLED=true  # Required for health endpoints
+      - KC_HEALTH_ENABLED=true  # Explicitly enable health endpoints (if needed)
+      - KC_METRICS_ENABLED=true  # Optional: Enable metrics if you want additional monitoring
     volumes:
       - ./keycloak/prod-config.json:/opt/keycloak/data/import/realm-config.json
+      - keycloak_data:/opt/keycloak/data
     networks:
       - keycloak
       - api-gateway
       - reverse-proxy
     depends_on:
       - keycloak-db
+
+  # Sidecar container to check Keycloak health before starting dependent services
+  keycloak-healthcheck:
+    image: alpine/curl
+    profiles: ["backend"]
+    command: ["tail", "-f", "/dev/null"]  # Sleep forever
+    networks:
+      - keycloak
+    depends_on:
+      - keycloak
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://keycloak:9000/health/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
   openfiles:
     profiles: ["backend"]
@@ -176,8 +194,8 @@ services:
     depends_on:
       crm-database:
         condition: service_started
-      keycloak:
-        condition: service_started
+      keycloak-healthcheck:
+        condition: service_healthy
       openfiles:
         condition: service_started
       jaeger:
@@ -207,6 +225,7 @@ volumes:
   keycloak_db_data:
   openfiles_data:
   krakend_config:
+  keycloak_data:
 
 networks:
   reverse-proxy:
