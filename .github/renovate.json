@@ -1,6 +1,3 @@
 {
-  "extends": ["config:recommended", "group:allNonMajor"],
-  "docker": {
-    "enabled": true
-  }
+  "extends": ["config:recommended", "group:allNonMajor"]
 }
