@@ -47,24 +47,46 @@ Les bases de données sont initialisées via des scripts SQL au premier démarra
 
 Si vous souhaitez modifier le schéma de base de données, éditez les fichiers SQL correspondants avant de démarrer les services.
 
+## Generation des configurations
+
+Certaines configurations sont generees automatiquement via les services du profil `init` :
+
+- `swagger-doc-gen` : genere `./krakend/config/swagger.yaml`
+- `krakend-config` : genere `./krakend/config/krakend.json`
+- `crm-frontend-config` : genere `./crm-frontend-config/config.json`
+
+Pour lancer uniquement la generation des configurations :
+
+```bash
+docker compose --env-file .env.dev -f docker-compose.dev.yml --profile init up --build
+```
+
+Quand les conteneurs du profil `init` ont termine, vous pouvez les arreter avec :
+
+```bash
+docker compose --env-file .env.dev -f docker-compose.dev.yml --profile init down
+```
+
+Ensuite, demarrez la stack complete normalement.
+
 ## Lancement
 
 Pour démarrer tous les services, utilisez la commande suivante :
 
 ```bash
-docker-compose -f docker-compose.dev.yml --env-file .env.dev up
+docker compose --env-file .env.dev -f docker-compose.dev.yml --profile dev up
 ```
 
 Pour lancer en mode détaché (background) :
 
 ```bash
-docker-compose -f docker-compose.dev.yml --env-file .env.dev up -d
+docker compose --env-file .env.dev -f docker-compose.dev.yml --profile dev up -d
 ```
 
 Pour reconstruire les images avant de lancer :
 
 ```bash
-docker-compose -f docker-compose.dev.yml --env-file .env.dev up --build
+docker compose --env-file .env.dev -f docker-compose.dev.yml --profile dev up --build
 ```
 
 ## Arrêt des services
@@ -72,35 +94,33 @@ docker-compose -f docker-compose.dev.yml --env-file .env.dev up --build
 Pour arrêter tous les services :
 
 ```bash
-docker-compose -f docker-compose.dev.yml down
+docker compose --env-file .env.dev -f docker-compose.dev.yml --profile dev down
 ```
 
 Pour réinitialiser complètement les bases de données, arrêtez et supprimez les conteneurs :
 
 ```bash
-docker-compose -f docker-compose.dev.yml down
-docker-compose -f docker-compose.dev.yml --env-file .env.dev up
+docker compose --env-file .env.dev -f docker-compose.dev.yml --profile dev down
+docker compose --env-file .env.dev -f docker-compose.dev.yml --profile dev up
 ```
 
 Les scripts d'initialisation seront réexécutés automatiquement au prochain démarrage.
 
 ## Accès aux services
 
-### Services Web
-- **CRM Frontend** : http://localhost:4200
-- **CRM Backend API** : http://localhost:3000
-- **Keycloak** : http://localhost:8080
-- **OpenFiles** : http://localhost:8001
-- **Jaeger UI** : http://localhost:16686
-- **KraKend API Gateway** : http://localhost:8090
-- **Reverse Proxy (Nginx)** : http://localhost (80) / https://localhost (443)
-
-### Bases de données
-- **CRM Database (PostgreSQL)** : localhost:5432
-- **Keycloak Database (PostgreSQL)** : localhost:5433
-
-### Ports de monitoring
-- **Jaeger Collector (UDP)** : localhost:6831
+| Service | Port hote | Port conteneur | Protocole | Usage |
+|---|---:|---:|---|---|
+| `crm-database` | `8080` | `5432` | `tcp` | PostgreSQL CRM |
+| `keycloak-db` | `8081` | `5432` | `tcp` | PostgreSQL Keycloak |
+| `keycloak` | `8082` | `8080` | `tcp` | Authentification Keycloak |
+| `openfiles` | `8083` | `8001` | `tcp` | Service de fichiers |
+| `jaeger` | `8085` | `16686` | `tcp` | Interface Jaeger |
+| `jaeger` | `8084` | `6831` | `udp` | Collecteur Jaeger |
+| `krakend` | `8086` | `8080` | `tcp` | API Gateway |
+| `reverse-proxy` | `8087` | `80` | `tcp` | HTTP reverse proxy |
+| `reverse-proxy` | `8088` | `443` | `tcp` | HTTPS reverse proxy |
+| `crm-backend` | `8089` | `80` | `tcp` | API backend |
+| `crm-frontend` | `8090` | `80` | `tcp` | Interface frontend |
 
 ## Note importante
 

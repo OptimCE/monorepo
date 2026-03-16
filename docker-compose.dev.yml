@@ -1,5 +1,6 @@
 services:
   crm-database:
+    profiles: ["dev"]
     image: postgres:18-alpine
     restart: unless-stopped
     environment:
@@ -7,13 +8,20 @@ services:
       - POSTGRES_DB=${CRM_DB_NAME:-crm_db}
       - POSTGRES_PASSWORD=${CRM_DB_PASSWORD}
     ports:
-      - "5432:5432"
+      - "8080:5432"
     volumes:
       - ./crm-backend/database_script/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
-      - crm
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   keycloak-db:
+    profiles: ["dev"]
     image: postgres:18-alpine
     restart: unless-stopped
     environment:
@@ -21,13 +29,20 @@ services:
       - POSTGRES_DB=${KEYCLOAK_DB_NAME:-keycloak}
       - POSTGRES_PASSWORD=${KEYCLOAK_DB_PASSWORD}
     ports:
-      - "5433:5432"
+      - "8081:5432"
     # volumes:
       # - ./database_init/keycloak-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
-      - keycloak
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   keycloak:
+    profiles: ["dev"]
     build:
       context: keycloak
       dockerfile: Dockerfile
@@ -48,36 +63,41 @@ services:
     volumes:
       - ./keycloak/dev-config.json:/opt/keycloak/data/import/realm-config.json
     ports:
-      - "8080:8080"
+      - "8082:8080"
     networks:
-      - keycloak
-      - api-gateway
+      - backend
       - reverse-proxy
     depends_on:
-      - keycloak-db
+      keycloak-db:
+        condition: service_healthy
+
+
   openfiles:
+    profiles: ["dev"]
     image: totalplatform/openfiles:latest
     restart: unless-stopped
     environment:
       - OPENFILES_PORT=${OPENFILES_PORT:-8001}
       - OPENFILES_DATA_PATH=${OPENFILES_DATA_PATH:-/var/lib/openfiles}
     ports:
-      - "8001:8001"
+      - "8083:8001"
     networks:
-      - openfiles
+      - backend
 
   jaeger:
+    profiles: ["dev"]
     image: jaegertracing/jaeger:latest
     restart: unless-stopped
     ports:
-      - "6831:6831/udp"
-      - "16686:16686"
+      - "8084:6831/udp"
+      - "8085:16686"
     environment:
       - COLLECTOR_OTLP_ENABLED=true
     networks:
-      - opentelemetry
+      - backend
     
   swagger-doc-gen:
+    profiles: ["init", "dev"]
     build:
       context: crm-backend
       dockerfile: Dockerfile.dev
@@ -86,6 +106,7 @@ services:
     command:   npm run swagger
 
   krakend-config:
+    profiles: ["init", "dev"]
     build:
       context: krakend/swagger2krakend
       dockerfile: Dockerfile
@@ -98,38 +119,33 @@ services:
       - REALM_NAME=optimce-realm
       - BACKEND_HOST=http://crm-backend:80
       - ISSUER_URL=http://keycloak:8080/realms/optimce-realm
-    depends_on:
-      - swagger-doc-gen
-
   krakend:
+    profiles: ["dev"]
     image: krakend:latest
     ports:
-      - "8090:8080"
+      - "8086:8080"
     volumes:
       - ./krakend/config:/etc/krakend
     networks:
-      - api-gateway
+      - backend
+      - reverse-proxy
     depends_on:
-      - krakend-config
-
+      crm-backend:
+        condition: service_started
   reverse-proxy:
+    profiles: ["dev"]
     image: nginx:latest
     ports:
-      - "80:80"
-      - "443:443"
+      - "8087:80"
+      - "8088:443"
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d
       - ./nginx/certs:/etc/nginx/certs
     networks:
       - reverse-proxy
 
-  letsencrypt:
-    image: certbot/certbot:latest
-    volumes:
-      - ./nginx/certs:/etc/letsencrypt
-    command: certonly --webroot --webroot-path=/var/www/certbot --d optimce.be --email adminl@optimce.be
-
   crm-backend:
+    profiles: ["dev"]
     build:
       context: crm-backend
       dockerfile: Dockerfile.dev
@@ -139,7 +155,7 @@ services:
       - NODE_ENV=${NODE_ENV:-production}
       - PORT=${PORT:-80}
       - MICROSERVICE_NAME=${MICROSERVICE_NAME:-crm-backend}
-      - ALLOWED_ORIGIN=${ALLOWED_ORIGIN:-http://localhost:4200}
+      - ALLOWED_ORIGIN=${ALLOWED_ORIGIN:-http://localhost:8090}
       - SERVER_HOST=${SERVER_HOST:-0.0.0.0}
       - SERVER_PORT=${SERVER_PORT:-80}
       - IAM_SERVICE_NAME=${IAM_SERVICE_NAME:-KEYCLOACK}
@@ -163,32 +179,28 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME:-crm_db}
     ports:
-      - "3000:80"
+      - "8089:80"
     networks:
-      - api-gateway
-      - crm
-      - keycloak
-      - openfiles
-      - opentelemetry
+      - backend
     depends_on:
-      - crm-database
-      - keycloak
-      - openfiles
-      - jaeger
+      crm-database:
+        condition: service_healthy
+      openfiles:
+        condition: service_started
+      jaeger:
+        condition: service_started
   crm-frontend-config:
-    image: alpine:latest
+    profiles : ["init", "dev"]
+    image: ghcr.io/ourouk/alpine-envsubst:main
     env_file:
       - .env.dev
     volumes:
       - ./crm-frontend-config:/config
-    command:
-      - sh
-      - -c
-      - |
-        apk add --no-cache gettext
-        envsubst < /config/config.template.json > /config/config.json
+    command: 
+      - < /config/config.template.json > /config/config.json
 
   crm-frontend:
+    profiles: ["dev"]
     build:
       context: crm-frontend
       dockerfile: Dockerfile
@@ -197,17 +209,10 @@ services:
     environment:
       - NODE_ENV=production
     ports:
-      - "4200:80"
+      - "8090:80"
     networks:
       - reverse-proxy
-    depends_on:
-      crm-frontend-config:
-        condition: service_completed_successfully
 
 networks:
+  backend:
   reverse-proxy:
-  api-gateway:
-  crm:
-  keycloak:
-  openfiles:
-  opentelemetry:
