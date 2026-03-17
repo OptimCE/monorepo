@@ -115,7 +115,7 @@ Comportement du wrapper :
 - Utilise `.env.dev` et `docker-compose.dev.yml`
 
 Ce script est la méthode conseillée pour les opérations courantes de démarrage/arrêt/redémarrage.
-
+### Démarrage des services manuellement
 Pour démarrer tous les services, utilisez la commande suivante :
 
 ```bash
@@ -134,7 +134,7 @@ Pour reconstruire les images avant de lancer :
 docker compose --env-file .env.dev -f docker-compose.dev.yml --profile dev up --build
 ```
 
-## Arrêt des services
+### Arrêt des services manuellement
 
 Pour arrêter tous les services :
 
