@@ -5,6 +5,7 @@ COMPOSE_FILE="./docker-compose.dev.yml"
 ENV_FILE="./.env.dev"
 PULL_IMAGES=true
 BUILD_IMAGES=true
+SKIP_INIT=false
 
 usage() {
     cat <<'EOF'
@@ -20,6 +21,7 @@ Options (for start/restart):
     --no-pull                  Skip image pull before starting
     --build                    Force build before starting (default: enabled)
     --no-build                 Skip build before starting
+    --skip-init                Skip init profile and start dev profile directly
 EOF
 }
 
@@ -59,14 +61,18 @@ start_stack() {
         compose -f "$COMPOSE_FILE" --profile init --profile dev pull
     fi
 
-    echo "Running init profile..."
-    if [ "$BUILD_IMAGES" = true ]; then
-        compose -f "$COMPOSE_FILE" --profile init --env-file "$ENV_FILE" up --build --abort-on-container-exit --remove-orphans
-    else
-        compose -f "$COMPOSE_FILE" --profile init --env-file "$ENV_FILE" up --abort-on-container-exit --remove-orphans
-    fi
+    if [ "$SKIP_INIT" = false ]; then
+        echo "Running init profile..."
+        if [ "$BUILD_IMAGES" = true ]; then
+            compose -f "$COMPOSE_FILE" --profile init --env-file "$ENV_FILE" up --build --abort-on-container-exit --remove-orphans
+        else
+            compose -f "$COMPOSE_FILE" --profile init --env-file "$ENV_FILE" up --abort-on-container-exit --remove-orphans
+        fi
 
-    compose -f "$COMPOSE_FILE" --profile init --env-file "$ENV_FILE" down --remove-orphans
+        compose -f "$COMPOSE_FILE" --profile init --env-file "$ENV_FILE" down --remove-orphans
+    else
+        echo "Skipping init profile."
+    fi
 
     echo "Starting dev profile..."
     if [ "$BUILD_IMAGES" = true ]; then
@@ -91,6 +97,9 @@ parse_start_options() {
                 ;;
             --no-build)
                 BUILD_IMAGES=false
+                ;;
+            --skip-init)
+                SKIP_INIT=true
                 ;;
             *)
                 echo "Unknown option: $1"

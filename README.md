@@ -1,4 +1,4 @@
-/!\ Ce repo est toujours sujet à de gros changement.
+/!\ Ce repo est toujours sujet à de gros changements.
 
 # Déploiement CRM
 
@@ -16,7 +16,6 @@ L'application comprend les services suivants :
 - **jaeger** : Traçage distribué (OpenTelemetry)
 - **krakend** : API Gateway
 - **reverse-proxy** : Nginx reverse proxy
-- **letsencrypt** : Gestion des certificats SSL
 
 ## Prérequis
 
@@ -38,44 +37,45 @@ KEYCLOAK_ADMIN_PASSWORD=changeme_keycloak_admin_password
 
 ### Initialisation des bases de données
 
-Les bases de données sont initialisées via des scripts SQL au premier démarrage :
+La base CRM est initialisée via un script SQL au premier démarrage :
 
 - **CRM Database** : `crm-backend/database_script/init.sql`
-- **Keycloak Database** : `database_init/keycloak-init.sql`
+
+Pour Keycloak, le fichier `keycloak/dev-config.json` est responsable de l'initiation d'un realm de base.
 
 ⚠️ **Important** : Les bases de données **ne sont pas persistantes**. Les données seront perdues à chaque redémarrage des conteneurs. Cette configuration est adaptée pour le développement et les tests.
 
-Si vous souhaitez modifier le schéma de base de données, éditez les fichiers SQL correspondants avant de démarrer les services.
+Si vous souhaitez modifier le schéma de base de données, éditez les fichiers SQL correspondants avant de lancer les services.
 
-## Generation des configurations
+## Génération des configurations
 
-Certaines configurations sont generees automatiquement via les services du profil `init` :
+Certaines configurations sont générées automatiquement via les services du profil `init` :
 
-- `swagger-doc-gen` : genere `./krakend/config/swagger.yaml`
-- `krakend-config` : genere `./krakend/config/krakend.json`
-- `crm-frontend-config` : genere `./crm-frontend-config/config.json`
+- `swagger-doc-gen` : génère `./krakend/config/swagger.yaml`
+- `krakend-config` : génère `./krakend/config/krakend.json`
+- `crm-frontend-config` : génère `./crm-frontend-config/config.json`
 
-Pour lancer uniquement la generation des configurations :
+Pour lancer uniquement la génération des configurations :
 
 ```bash
 docker compose --env-file .env.dev -f docker-compose.dev.yml --profile init up --build
 ```
 
-Quand les conteneurs du profil `init` ont termine, vous pouvez les arreter avec :
+Quand les conteneurs du profil `init` ont terminé, vous pouvez les arrêter avec :
 
 ```bash
 docker compose --env-file .env.dev -f docker-compose.dev.yml --profile init down
 ```
 
-Ensuite, demarrez la stack complete normalement.
+Ensuite, démarrez la stack complète normalement.
 
 ## Lancement
 
-### Wrapper recommande
+### Wrapper recommandé
 
-Un wrapper est disponible pour piloter la stack complete avec les profils Docker Compose `init` puis `dev` : `./docker-stack.sh`.
+Un wrapper est disponible pour piloter la stack complète avec les profils Docker Compose `init` puis `dev` : `./docker-stack.sh`.
 
-Si besoin, rendez-le executable :
+Si besoin, rendez-le exécutable :
 
 ```bash
 chmod +x ./docker-stack.sh
@@ -89,21 +89,30 @@ Commandes principales :
 ./docker-stack.sh restart
 ```
 
+Le flux exécute automatiquement :
+
+1. le profil `init` pour générer les configurations
+2. l'arrêt du profil `init`
+3. le démarrage du profil `dev` en détaché
+
+Avec `--skip-init`, le script ignore les étapes `init` et démarre directement le profil `dev`.
+
 Options disponibles pour `start` et `restart` :
 
 ```bash
 ./docker-stack.sh start --no-pull
 ./docker-stack.sh start --no-build
 ./docker-stack.sh start --build
+./docker-stack.sh start --skip-init
 ```
 
 Comportement du wrapper :
 
 - Détecte automatiquement `docker-compose` ou `docker compose`
 - Vérifie que le service Docker est actif
-- lance le profil `init` (génération de configuration), puis le stoppe
-- Démarre le profil `dev` en détaché
-- utilise `.env.dev` et `docker-compose.dev.yml`
+- Lance le profil `init` (génération de configuration), puis le stoppe, sauf avec `--skip-init`
+- Lance le profil `dev` en détaché
+- Utilise `.env.dev` et `docker-compose.dev.yml`
 
 Ce script est la méthode conseillée pour les opérations courantes de démarrage/arrêt/redémarrage.
 
@@ -157,7 +166,3 @@ Les scripts d'initialisation seront réexécutés automatiquement au prochain d�
 | `reverse-proxy` | `8088` | `443` | `tcp` | HTTPS reverse proxy |
 | `crm-backend` | `8089` | `80` | `tcp` | API backend |
 | `crm-frontend` | `8090` | `80` | `tcp` | Interface frontend |
-
-## Note importante
-
-⚠️ **Il est essentiel d'utiliser l'option `--env-file .env.dev`** lors du lancement avec `docker-compose` pour que les substitutions de variables `${VAR}` dans le fichier docker-compose.dev.yml soient correctement résolues.
