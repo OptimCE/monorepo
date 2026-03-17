@@ -132,6 +132,8 @@ services:
     depends_on:
       crm-backend:
         condition: service_started
+      keycloak:
+        condition: service_started
   reverse-proxy:
     profiles: ["dev"]
     image: nginx:latest
@@ -143,6 +145,9 @@ services:
       - ./nginx/certs:/etc/nginx/certs
     networks:
       - reverse-proxy
+    depends_on:
+      krakend:
+        condition: service_started
 
   crm-backend:
     profiles: ["dev"]
