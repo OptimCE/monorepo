@@ -71,6 +71,42 @@ Ensuite, demarrez la stack complete normalement.
 
 ## Lancement
 
+### Wrapper recommande
+
+Un wrapper est disponible pour piloter la stack complete avec les profils Docker Compose `init` puis `dev` : `./docker-stack.sh`.
+
+Si besoin, rendez-le executable :
+
+```bash
+chmod +x ./docker-stack.sh
+```
+
+Commandes principales :
+
+```bash
+./docker-stack.sh start
+./docker-stack.sh stop
+./docker-stack.sh restart
+```
+
+Options disponibles pour `start` et `restart` :
+
+```bash
+./docker-stack.sh start --no-pull
+./docker-stack.sh start --no-build
+./docker-stack.sh start --build
+```
+
+Comportement du wrapper :
+
+- Détecte automatiquement `docker-compose` ou `docker compose`
+- Vérifie que le service Docker est actif
+- lance le profil `init` (génération de configuration), puis le stoppe
+- Démarre le profil `dev` en détaché
+- utilise `.env.dev` et `docker-compose.dev.yml`
+
+Ce script est la méthode conseillée pour les opérations courantes de démarrage/arrêt/redémarrage.
+
 Pour démarrer tous les services, utilisez la commande suivante :
 
 ```bash
