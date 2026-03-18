@@ -68,12 +68,12 @@
     {
       "id": "cd6e33cc-8dff-480c-bfc2-bf7222b4c6dc",
       "clientId": "optimce-frontend",
-      "baseUrl": "http://localhost:4200",
+      "baseUrl": "http://localhost:8087/",
       "surrogateAuthRequired": false,
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
-      "redirectUris": ["http://localhost:4200/*"],
-      "webOrigins": ["http://localhost:4200"],
+      "redirectUris": ["http://localhost:8087/*"],
+      "webOrigins": ["http://localhost:8087"],
       "bearerOnly": false,
       "consentRequired": false,
       "standardFlowEnabled": true,
@@ -97,18 +97,17 @@
       "consentRequired": false,
       "standardFlowEnabled": false,
       "implicitFlowEnabled": false,
-      "directAccessGrantsEnabled": false,
+      "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": true,
       "publicClient": false,
       "protocol": "openid-connect",
       "fullScopeAllowed": true,
-      "defaultClientScopes": ["web-origins", "roles", "profile", "email"],
+      "defaultClientScopes": ["web-origins", "roles", "profile", "email", "basic"],
       "optionalClientScopes": []
     }
   ],
   "clientScopes": [
     {
-      "id": "605cda15-e7ad-40b2-8425-3c9e63c30eda",
       "name": "web-origins",
       "protocol": "openid-connect",
       "attributes": {
@@ -116,7 +115,6 @@
       }
     },
     {
-      "id": "98ba6f87-bb09-4d99-9420-2a62b338daea",
       "name": "profile",
       "protocol": "openid-connect",
       "attributes": {
@@ -124,7 +122,6 @@
       }
     },
     {
-      "id": "784a353f-b8ed-43e9-969d-3f81097d6dce",
       "name": "email",
       "protocol": "openid-connect",
       "attributes": {
@@ -132,12 +129,51 @@
       }
     },
     {
-      "id": "be48b00d-1f45-4958-be4a-f3096222971c",
       "name": "roles",
       "protocol": "openid-connect",
       "attributes": {
         "display.on.consent.screen": "true"
       }
+    },
+    {
+      "name": "offline_access",
+      "protocol": "openid-connect",
+      "attributes": {
+        "display.on.consent.screen": "true"
+      }
+    },
+    {
+      "name": "basic",
+      "protocol": "openid-connect",
+      "attributes": {
+        "display.on.consent.screen": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "sub",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sub-mapper",
+          "consentRequired": false,
+          "config": {
+            "introspection.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "auth_time",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usersessionmodel-note-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.session.note": "AUTH_TIME",
+            "id.token.claim": "true",
+            "introspection.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "auth_time",
+            "jsonType.label": "long"
+          }
+        }
+      ]
     }
   ],
   "defaultDefaultClientScopes": ["profile", "email", "roles", "web-origins"],

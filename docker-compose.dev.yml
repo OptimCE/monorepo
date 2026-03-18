@@ -56,8 +56,11 @@ services:
       - KC_DB_URL=${KC_DB_URL:-jdbc:postgresql://keycloak-db:5432/keycloak}
       - KC_DB_USERNAME=${KC_DB_USERNAME:-postgres}
       - KC_DB_PASSWORD=${KC_DB_PASSWORD}
-      - KC_HOSTNAME=${KC_HOSTNAME:-localhost}
+      - KC_HOSTNAME=localhost
+      - KC_HOSTNAME_PORT=8087
       - KC_HTTP_ENABLED=${KC_HTTP_ENABLED:-true}
+      - KC_HTTP_RELATIVE_PATH=/keycloak
+      - KC_PROXY_HEADERS=forwarded
       - KC_BOOTSTRAP_ADMIN_USERNAME=${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}
       - KC_BOOTSTRAP_ADMIN_PASSWORD=${KC_BOOTSTRAP_ADMIN_PASSWORD:-admin}
     volumes:
