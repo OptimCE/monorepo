@@ -76,7 +76,7 @@ start_stack() {
 
     if [ -n "$TARGET_SERVICE" ]; then
         if [ "$PULL_IMAGES" = true ]; then
-            compose -f "$COMPOSE_FILE" --profile dev pull "$TARGET_SERVICE"
+            compose -f "$COMPOSE_FILE" --profile dev --env-file "$ENV_FILE" pull "$TARGET_SERVICE"
         fi
 
         echo "Starting service '$TARGET_SERVICE'..."
