@@ -7,6 +7,9 @@ Use `docker-stack.sh` to manage the CRM stack:
 - `./docker-stack.sh stop` - Stop all services
 - `./docker-stack.sh restart` - Restart all services
 - `./docker-stack.sh start --no-pull` - Start without pulling images
+- `./docker-stack.sh start -s swagger-doc-gen` - Start only one service
+- `./docker-stack.sh stop -s krakend` - Stop only one service
+- `./docker-stack.sh restart -s keycloak` - Restart only one service
 
 ## Key Files
 

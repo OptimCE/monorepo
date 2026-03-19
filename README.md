@@ -106,6 +106,17 @@ Options disponibles pour `start` et `restart` :
 ./docker-stack.sh start --skip-init
 ```
 
+Options disponibles pour `start`, `stop` et `restart` :
+
+```bash
+./docker-stack.sh start -s swagger-doc-gen
+./docker-stack.sh stop --service krakend
+./docker-stack.sh restart -s keycloak
+```
+
+Avec `-s` / `--service`, le wrapper cible uniquement le service demandé au lieu de toute la stack.
+Pour `stop`, cela exécute un `docker compose stop <service>`.
+
 Comportement du wrapper :
 
 - Détecte automatiquement `docker-compose` ou `docker compose`
