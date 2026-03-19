@@ -47,7 +47,7 @@ services:
       context: keycloak
       dockerfile: Dockerfile
     restart: unless-stopped
-    command: ["start-dev", "--import-realm", "--verbose"]
+    command: ["start-dev", "--import-realm", "--verbose", "--proxy-headers=xforwarded", "--http-relative-path=/keycloak"]
     environment:
       - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN:-admin}
       - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
