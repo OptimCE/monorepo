@@ -8,7 +8,7 @@ services:
       - POSTGRES_DB=${CRM_DB_NAME:-crm_db}
       - POSTGRES_PASSWORD=${CRM_DB_PASSWORD}
     volumes:
-      - ./crm-backend/database_script/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./crm-backend/database_script/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
       - "8080:5432"
     networks:
