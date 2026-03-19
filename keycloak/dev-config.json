@@ -2,6 +2,7 @@
   "id": "5943347c-fc15-4281-b51a-a678f117efe8",
   "realm": "optimce-realm",
   "enabled": true,
+  "registrationAllowed": true,
   "accessTokenLifespan": 300,
   "defaultSignatureAlgorithm": "RS256",
   "users": [
