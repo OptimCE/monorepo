@@ -7,10 +7,10 @@ services:
       - POSTGRES_USER=${CRM_DB_USERNAME:-postgres}
       - POSTGRES_DB=${CRM_DB_NAME:-crm_db}
       - POSTGRES_PASSWORD=${CRM_DB_PASSWORD}
+    volumes:
+      - ./crm-backend/database_script/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "8080:5432"
-    volumes:
-      - ./crm-backend/database_script/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - backend
     healthcheck:
@@ -30,8 +30,6 @@ services:
       - POSTGRES_PASSWORD=${KEYCLOAK_DB_PASSWORD}
     ports:
       - "8081:5432"
-    # volumes:
-      # - ./database_init/keycloak-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - backend
     healthcheck:
@@ -59,8 +57,6 @@ services:
       - KC_HOSTNAME=localhost
       - KC_HOSTNAME_PORT=8087
       - KC_HTTP_ENABLED=${KC_HTTP_ENABLED:-true}
-      - KC_HTTP_RELATIVE_PATH=/keycloak
-      - KC_PROXY_HEADERS=forwarded
       - KC_BOOTSTRAP_ADMIN_USERNAME=${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}
       - KC_BOOTSTRAP_ADMIN_PASSWORD=${KC_BOOTSTRAP_ADMIN_PASSWORD:-admin}
     volumes:
@@ -118,10 +114,14 @@ services:
     environment:
       - SWAGGER_FILE=/config/swagger.yaml
       - OUTPUT_FILE=/config/krakend.json
-      - KEYCLOAK_URL=http://keycloak:8080
+      - KEYCLOAK_URL=http://keycloak:8080/keycloak
       - REALM_NAME=optimce-realm
       - BACKEND_HOST=http://crm-backend:80
-      - ISSUER_URL=http://keycloak:8080/realms/optimce-realm
+      - REALM_NAME=optimce-realm
+      - ISSUER=http://localhost:8087/keycloak/realms/optimce-realm
+    depends_on:
+      swagger-doc-gen:
+        condition: service_completed_successfully
   krakend:
     profiles: ["dev"]
     image: krakend:latest

@@ -17,6 +17,23 @@
   "defaultSignatureAlgorithm": "RS256",
   "users": [
     {
+      "id": "2bbeb55b-ab05-4911-ba53-0e843e49f876",
+      "username": "service-account-optimce-backend",
+      "emailVerified": false,
+      "enabled": true,
+      "serviceAccountClientId": "optimce-backend",
+      "realmRoles": [
+        "default-roles-optimce-realm",
+        "offline_access",
+        "uma_authorization"
+      ],
+      "clientRoles": {
+        "realm-management": [
+          "realm-admin"
+        ]
+      }
+    },
+    {
       "id": "9dce5300-c8b7-43f2-92f3-deccaa9f64e5",
       "username": "radisio",
       "firstName": "Eric Ugo",
@@ -82,7 +99,7 @@
       "serviceAccountsEnabled": false,
       "publicClient": true,
       "protocol": "openid-connect",
-      "defaultClientScopes": ["web-origins", "roles", "profile", "email"],
+      "defaultClientScopes": ["web-origins", "acr", "roles", "profile", "basic", "email"],
       "optionalClientScopes": ["offline_access"]
     },
     {
@@ -102,7 +119,7 @@
       "publicClient": false,
       "protocol": "openid-connect",
       "fullScopeAllowed": true,
-      "defaultClientScopes": ["web-origins", "roles", "profile", "email", "basic"],
+      "defaultClientScopes": ["web-origins", "acr", "roles", "profile", "basic", "email"],
       "optionalClientScopes": []
     }
   ],
