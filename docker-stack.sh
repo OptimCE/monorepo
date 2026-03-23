@@ -6,6 +6,7 @@ ENV_FILE="./.env.dev"
 PULL_IMAGES=true
 BUILD_IMAGES=true
 SKIP_INIT=false
+TARGET_SERVICE=""
 
 usage() {
     cat <<'EOF'
@@ -22,6 +23,9 @@ Options (for start/restart):
     --build                    Force build before starting (default: enabled)
     --no-build                 Skip build before starting
     --skip-init                Skip init profile and start dev profile directly
+
+Options (for start/stop/restart):
+    -s, --service <name>       Target a specific service instead of the full stack
 EOF
 }
 
@@ -54,8 +58,35 @@ compose() {
     "${DOCKER_COMPOSE_CMD[@]}" "$@"
 }
 
+set_target_service_from_option() {
+    local option_name="$1"
+    local option_value="${2:-}"
+
+    if [ -z "$option_value" ]; then
+        echo "Missing value for $option_name"
+        usage
+        exit 1
+    fi
+
+    TARGET_SERVICE="$option_value"
+}
+
 start_stack() {
     check_docker_service
+
+    if [ -n "$TARGET_SERVICE" ]; then
+        if [ "$PULL_IMAGES" = true ]; then
+            compose -f "$COMPOSE_FILE" --profile dev --env-file "$ENV_FILE" pull "$TARGET_SERVICE"
+        fi
+
+        echo "Starting service '$TARGET_SERVICE'..."
+        if [ "$BUILD_IMAGES" = true ]; then
+            compose -f "$COMPOSE_FILE" --profile dev --env-file "$ENV_FILE" up -d --build --remove-orphans "$TARGET_SERVICE"
+        else
+            compose -f "$COMPOSE_FILE" --profile dev --env-file "$ENV_FILE" up -d --remove-orphans "$TARGET_SERVICE"
+        fi
+        return
+    fi
 
     if [ "$PULL_IMAGES" = true ]; then
         compose -f "$COMPOSE_FILE" --profile init --profile dev pull
@@ -83,7 +114,11 @@ start_stack() {
 }
 
 stop_stack() {
-    compose -f "$COMPOSE_FILE" --profile init --profile dev --env-file "$ENV_FILE" down --remove-orphans
+    if [ -n "$TARGET_SERVICE" ]; then
+        compose -f "$COMPOSE_FILE" --profile dev --env-file "$ENV_FILE" stop "$TARGET_SERVICE"
+    else
+        compose -f "$COMPOSE_FILE" --profile init --profile dev --env-file "$ENV_FILE" down --remove-orphans
+    fi
 }
 
 parse_start_options() {
@@ -100,6 +135,27 @@ parse_start_options() {
                 ;;
             --skip-init)
                 SKIP_INIT=true
+                ;;
+            -s|--service)
+                set_target_service_from_option "$1" "${2:-}"
+                shift
+                ;;
+            *)
+                echo "Unknown option: $1"
+                usage
+                exit 1
+                ;;
+        esac
+        shift
+    done
+}
+
+parse_stop_options() {
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            -s|--service)
+                set_target_service_from_option "$1" "${2:-}"
+                shift
                 ;;
             *)
                 echo "Unknown option: $1"
@@ -128,6 +184,7 @@ main() {
             start_stack
             ;;
         stop)
+            parse_stop_options "$@"
             stop_stack
             ;;
         restart)
