@@ -4,8 +4,8 @@ services:
     image: postgres:18-alpine
     restart: unless-stopped
     environment:
-      - POSTGRES_USER=${CRM_DB_USERNAME:-postgres}
-      - POSTGRES_DB=${CRM_DB_NAME:-crm_db}
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=crm_db
       - POSTGRES_PASSWORD=${CRM_DB_PASSWORD}
     volumes:
       - ./crm-backend/database_script/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -25,8 +25,8 @@ services:
     image: postgres:18-alpine
     restart: unless-stopped
     environment:
-      - POSTGRES_USER=${KEYCLOAK_DB_USERNAME:-postgres}
-      - POSTGRES_DB=${KEYCLOAK_DB_NAME:-keycloak}
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=keycloak
       - POSTGRES_PASSWORD=${KEYCLOAK_DB_PASSWORD}
     ports:
       - "8081:5432"
@@ -47,18 +47,18 @@ services:
     restart: unless-stopped
     command: ["start-dev", "--import-realm", "--verbose", "--proxy-headers=xforwarded", "--http-relative-path=/keycloak"]
     environment:
-      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN:-admin}
+      - KEYCLOAK_ADMIN=admin
       - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
       - KEYCLOAK_IMPORT=/opt/keycloak/data/import/realm-config.json
-      - KC_DB=${KC_DB:-postgres}
-      - KC_DB_URL=${KC_DB_URL:-jdbc:postgresql://keycloak-db:5432/keycloak}
-      - KC_DB_USERNAME=${KC_DB_USERNAME:-postgres}
-      - KC_DB_PASSWORD=${KC_DB_PASSWORD}
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://keycloak-db:5432/keycloak
+      - KC_DB_USERNAME=postgres
+      - KC_DB_PASSWORD=${KEYCLOAK_DB_PASSWORD}
       - KC_HOSTNAME=localhost
       - KC_HOSTNAME_PORT=8087
-      - KC_HTTP_ENABLED=${KC_HTTP_ENABLED:-true}
-      - KC_BOOTSTRAP_ADMIN_USERNAME=${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}
-      - KC_BOOTSTRAP_ADMIN_PASSWORD=${KC_BOOTSTRAP_ADMIN_PASSWORD:-admin}
+      - KC_HTTP_ENABLED=true
+      - KC_BOOTSTRAP_ADMIN_USERNAME=admin
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=${KC_BOOTSTRAP_ADMIN_PASSWORD}
     volumes:
       - ./keycloak/dev-config.json:/opt/keycloak/data/import/realm-config.json
     ports:
@@ -69,15 +69,16 @@ services:
     depends_on:
       keycloak-db:
         condition: service_healthy
-
+      keycloak-config:
+        condition: service_completed_successfully
 
   openfiles:
     profiles: ["dev"]
     image: totalplatform/openfiles:latest
     restart: unless-stopped
     environment:
-      - OPENFILES_PORT=${OPENFILES_PORT:-8001}
-      - OPENFILES_DATA_PATH=${OPENFILES_DATA_PATH:-/var/lib/openfiles}
+      - OPENFILES_PORT=8001
+      - OPENFILES_DATA_PATH=/var/lib/openfiles
     ports:
       - "8083:8001"
     networks:
@@ -121,6 +122,7 @@ services:
     depends_on:
       swagger-doc-gen:
         condition: service_completed_successfully
+
   krakend:
     profiles: ["dev"]
     image: krakend:latest
@@ -136,6 +138,7 @@ services:
         condition: service_started
       keycloak:
         condition: service_started
+
   reverse-proxy:
     profiles: ["dev"]
     image: nginx:latest
@@ -159,32 +162,32 @@ services:
     command: npm run dev
     restart: unless-stopped
     environment:
-      - NODE_ENV=${NODE_ENV:-production}
-      - PORT=${PORT:-80}
-      - MICROSERVICE_NAME=${MICROSERVICE_NAME:-crm-backend}
-      - ALLOWED_ORIGIN=${ALLOWED_ORIGIN:-http://localhost:8090}
-      - SERVER_HOST=${SERVER_HOST:-0.0.0.0}
-      - SERVER_PORT=${SERVER_PORT:-80}
-      - IAM_SERVICE_NAME=${IAM_SERVICE_NAME}
-      - IAM_REALM=${IAM_REALM}
-      - IAM_REALM_NAME=${IAM_REALM_NAME}
-      - IAM_BASE_URL=${IAM_BASE_URL}
-      - IAM_CLIENT_ID=${IAM_CLIENT_ID}
-      - IAM_GRANT_TYPE=${IAM_GRANT_TYPE}
+      - NODE_ENV=production
+      - PORT=80
+      - MICROSERVICE_NAME=crm-backend
+      - ALLOWED_ORIGIN=${ALLOWED_ORIGIN}
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=80
+      - IAM_SERVICE_NAME=KEYCLOAK
+      - IAM_REALM=optimce-realm
+      - IAM_REALM_NAME=optimce-realm
+      - IAM_BASE_URL=http://keycloak:8080/keycloak
+      - IAM_CLIENT_ID=optimce-backend
+      - IAM_GRANT_TYPE=client_credentials
       - IAM_CLIENT_SECRET=${IAM_CLIENT_SECRET}
-      - STORAGE_SERVICE_NAME=${STORAGE_SERVICE_NAME:-openfiles}
-      - STORAGE_TARGET=${STORAGE_TARGET:-http://openfiles:8001}
-      - STORAGE_DB_NAME=${STORAGE_DB_NAME:-crm_files}
+      - STORAGE_SERVICE_NAME=openfiles
+      - STORAGE_TARGET=http://openfiles:8001
+      - STORAGE_DB_NAME=crm_files
       - STORAGE_TOKEN=${STORAGE_TOKEN}
-      - REMOTE_LOGGING=${REMOTE_LOGGING:-true}
-      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4318}
-      - OTEL_EXPORTER_OTLP_PROTOCOL=${OTEL_EXPORTER_OTLP_PROTOCOL:-http/protobuf}
-      - DB_TYPE=${DB_TYPE:-postgres}
-      - DB_HOST=${DB_HOST:-crm-database}
-      - DB_PORT=${DB_PORT:-5432}
-      - DB_USERNAME=${DB_USERNAME:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME:-crm_db}
+      - REMOTE_LOGGING=true
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - DB_TYPE=postgres
+      - DB_HOST=crm-database
+      - DB_PORT=5432
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=${CRM_DB_PASSWORD}
+      - DB_NAME=crm_db
     ports:
       - "8089:80"
     networks:
@@ -196,6 +199,17 @@ services:
         condition: service_started
       jaeger:
         condition: service_started
+
+  keycloak-config:
+    profiles: ["init", "dev"]
+    image: ghcr.io/ourouk/alpine-envsubst:main
+    env_file:
+      - .env.dev
+    volumes:
+      - ./keycloak:/config
+    command:
+      - < /config/dev-config.template.json > /config/dev-config.json
+
   crm-frontend-config:
     profiles : ["init", "dev"]
     image: ghcr.io/ourouk/alpine-envsubst:main
