@@ -1,4 +1,4 @@
 crm-frontend-config/config.json
-keycloak/config/dev-config.json
+keycloak/dev-config.json
 krakend/config/*
 
