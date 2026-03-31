@@ -202,7 +202,7 @@ services:
 
   keycloak-config:
     profiles: ["init", "dev"]
-    image: ghcr.io/ourouk/alpine-envsubst:main
+    image: ghcr.io/ourouk/alpine-envsubst:main@sha256:10899e32576d793f054ddbf23889dc6ef6295726d350a377efc110a976c1a11e
     env_file:
       - .env.dev
     volumes:
