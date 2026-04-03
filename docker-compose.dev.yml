@@ -103,7 +103,7 @@ services:
       dockerfile: Dockerfile.dev
     volumes:
       - ./krakend/config:/app/docs/openapi
-    command:   npm run swagger
+    command: sh -c "npm run swagger && sleep 3 && mv /app/docs/openapi/swagger.yaml /app/docs/openapi/root.yaml"
 
   krakend-config:
     profiles: ["init", "dev"]
@@ -113,7 +113,7 @@ services:
     volumes:
       - ./krakend/config:/config
     environment:
-      - SWAGGER_FILE=/config/swagger.yaml
+      - SWAGGER_FILE=/config/root.yaml
       - OUTPUT_FILE=/config/krakend.json
       - KEYCLOAK_URL=http://keycloak:8080/keycloak
       - REALM_NAME=optimce-realm
