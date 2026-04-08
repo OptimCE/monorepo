@@ -1,0 +1,11 @@
+global:
+  extra_config: /app/extra-config.json
+  variables:
+    KEYCLOAK_URL: http://keycloak:8080/keycloak
+    REALM_NAME: optimce-realm
+    ISSUER: http://localhost:8087/keycloak/realms/optimce-realm
+
+services:
+  root:
+    swagger: /config/root.yaml
+    host: crm-backend:80
