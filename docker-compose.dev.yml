@@ -8,7 +8,7 @@ services:
       - POSTGRES_DB=crm_db
       - POSTGRES_PASSWORD=${CRM_DB_PASSWORD}
     volumes:
-      - ./crm-backend/database_script/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./crm-backend/tests/sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
       - "8080:5432"
     networks:
@@ -113,12 +113,8 @@ services:
     volumes:
       - ./krakend/config:/config
     environment:
-      - SWAGGER_FILE=/config/root.yaml
+      - CONFIG_FILE=/config/krakend-builder.yaml
       - OUTPUT_FILE=/config/krakend.json
-      - KEYCLOAK_URL=http://keycloak:8080/keycloak
-      - REALM_NAME=optimce-realm
-      - BACKEND_HOST=http://crm-backend:80
-      - ISSUER=http://localhost:8087/keycloak/realms/optimce-realm
     depends_on:
       swagger-doc-gen:
         condition: service_completed_successfully
