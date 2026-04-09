@@ -1,87 +1,87 @@
-/!\ Ce repo est toujours sujet à de gros changements.
+/!\ This repo is still subject to major changes.
 
-# Déploiement CRM
+# CRM Deployment
 
-Ce projet contient la configuration Docker Compose pour déployer l'application CRM avec tous ses services.
+This project contains the Docker Compose configuration to deploy the CRM application with all its services.
 
 ## Architecture
 
-L'application comprend les services suivants :
-- **crm-frontend** : Interface utilisateur
-- **crm-backend** : API backend
-- **crm-database** : Base de données PostgreSQL pour le CRM
-- **keycloak** : Serveur d'authentification
-- **keycloak-db** : Base de données PostgreSQL pour Keycloak
-- **openfiles** : Service de gestion de fichiers
-- **jaeger** : Traçage distribué (OpenTelemetry)
-- **krakend** : API Gateway
-- **reverse-proxy** : Nginx reverse proxy
+The application includes the following services:
+- **crm-frontend**: User interface
+- **crm-backend**: Backend API
+- **crm-database**: PostgreSQL database for the CRM
+- **keycloak**: Authentication server
+- **keycloak-db**: PostgreSQL database for Keycloak
+- **openfiles**: File management service
+- **jaeger**: Distributed tracing (OpenTelemetry)
+- **krakend**: API Gateway
+- **reverse-proxy**: Nginx reverse proxy
 
-## Prérequis
+## Prerequisites
 
 - Docker
 - Docker Compose
 
 ## Configuration
 
-### Variables d'environnement
+### Environment Variables
 
-Avant de lancer l'application, assurez-vous de configurer le fichier `.env.dev` avec les variables d'environnement appropriées, notamment les mots de passe :
+Before starting the application, make sure to configure the `.env.dev` file with the appropriate environment variables, particularly the passwords:
 
 ```bash
-# Modifier les mots de passe dans .env.dev
+# Modify passwords in .env.dev
 DB_PASSWORD=changeme_db_password
 KEYCLOAK_DB_PASSWORD=changeme_keycloak_db_password
 KEYCLOAK_ADMIN_PASSWORD=changeme_keycloak_admin_password
 ```
 
-### Initialisation des bases de données
+### Database Initialization
 
-La base CRM est initialisée via un script SQL au premier démarrage :
+The CRM database is initialized via an SQL script on the first startup:
 
-- **CRM Database** : `crm-backend/database_script/init.sql`
+- **CRM Database**: `crm-backend/database_script/init.sql`
 
-Pour Keycloak, le fichier `keycloak/dev-config.json` est responsable de l'initiation d'un realm de base.
+For Keycloak, the `keycloak/dev-config.json` file is responsible for initializing a base realm.
 
-⚠️ **Important** : Les bases de données **ne sont pas persistantes**. Les données seront perdues à chaque redémarrage des conteneurs. Cette configuration est adaptée pour le développement et les tests.
+⚠️ **Important**: The databases **are not persistent**. Data will be lost every time the containers are restarted. This configuration is suitable for development and testing.
 
-Si vous souhaitez modifier le schéma de base de données, éditez les fichiers SQL correspondants avant de lancer les services.
+If you want to modify the database schema, edit the corresponding SQL files before starting the services.
 
-## Génération des configurations
+## Configuration Generation
 
-Certaines configurations sont générées automatiquement via les services du profil `init` :
+Some configurations are generated automatically via the `init` profile services:
 
-- `swagger-doc-gen` : génère `./krakend/config/swagger.yaml`
-- `krakend-config` : génère `./krakend/config/krakend.json`
-- `crm-frontend-config` : génère `./crm-frontend-config/config.json`
+- `swagger-doc-gen`: generates `./krakend/config/swagger.yaml`
+- `krakend-config`: generates `./krakend/config/krakend.json`
+- `crm-frontend-config`: generates `./crm-frontend-config/config.json`
 
-Pour lancer uniquement la génération des configurations :
+To only run the configuration generation:
 
 ```bash
 docker compose --env-file .env.dev -f docker-compose.dev.yml --profile init up --build
 ```
 
-Quand les conteneurs du profil `init` ont terminé, vous pouvez les arrêter avec :
+When the `init` profile containers have finished, you can stop them with:
 
 ```bash
 docker compose --env-file .env.dev -f docker-compose.dev.yml --profile init down
 ```
 
-Ensuite, démarrez la stack complète normalement.
+Then, start the full stack normally.
 
-## Lancement
+## Running
 
-### Wrapper recommandé
+### Recommended Wrapper
 
-Un wrapper est disponible pour piloter la stack complète avec les profils Docker Compose `init` puis `dev` : `./docker-stack.sh`.
+A wrapper is available to control the full stack with the Docker Compose `init` and `dev` profiles: `./docker-stack.sh`.
 
-Si besoin, rendez-le exécutable :
+If needed, make it executable:
 
 ```bash
 chmod +x ./docker-stack.sh
 ```
 
-Commandes principales :
+Main commands:
 
 ```bash
 ./docker-stack.sh start
@@ -89,15 +89,15 @@ Commandes principales :
 ./docker-stack.sh restart
 ```
 
-Le flux exécute automatiquement :
+The flow automatically executes:
 
-1. le profil `init` pour générer les configurations
-2. l'arrêt du profil `init`
-3. le démarrage du profil `dev` en détaché
+1. the `init` profile to generate configurations
+2. stopping the `init` profile
+3. starting the `dev` profile in detached mode
 
-Avec `--skip-init`, le script ignore les étapes `init` et démarre directement le profil `dev`.
+With `--skip-init`, the script skips the `init` steps and starts the `dev` profile directly.
 
-Options disponibles pour `start` et `restart` :
+Available options for `start` and `restart`:
 
 ```bash
 ./docker-stack.sh start --no-pull
@@ -106,7 +106,7 @@ Options disponibles pour `start` et `restart` :
 ./docker-stack.sh start --skip-init
 ```
 
-Options disponibles pour `start`, `stop` et `restart` :
+Available options for `start`, `stop`, and `restart`:
 
 ```bash
 ./docker-stack.sh start -s swagger-doc-gen
@@ -114,66 +114,66 @@ Options disponibles pour `start`, `stop` et `restart` :
 ./docker-stack.sh restart -s keycloak
 ```
 
-Avec `-s` / `--service`, le wrapper cible uniquement le service demandé au lieu de toute la stack.
-Pour `stop`, cela exécute un `docker compose stop <service>`.
+With `-s` / `--service`, the wrapper targets only the requested service instead of the entire stack.
+For `stop`, this executes a `docker compose stop <service>`.
 
-Comportement du wrapper :
+Wrapper behavior:
 
-- Détecte automatiquement `docker-compose` ou `docker compose`
-- Vérifie que le service Docker est actif
-- Lance le profil `init` (génération de configuration), puis le stoppe, sauf avec `--skip-init`
-- Lance le profil `dev` en détaché
-- Utilise `.env.dev` et `docker-compose.dev.yml`
+- Automatically detects `docker-compose` or `docker compose`
+- Checks that the Docker service is running
+- Runs the `init` profile (configuration generation), then stops it, unless `--skip-init` is used
+- Runs the `dev` profile in detached mode
+- Uses `.env.dev` and `docker-compose.dev.yml`
 
-Ce script est la méthode conseillée pour les opérations courantes de démarrage/arrêt/redémarrage.
-### Démarrage des services manuellement
-Pour démarrer tous les services, utilisez la commande suivante :
+This script is the recommended method for standard start/stop/restart operations.
+### Starting Services Manually
+To start all services, use the following command:
 
 ```bash
 docker compose --env-file .env.dev -f docker-compose.dev.yml --profile dev up
 ```
 
-Pour lancer en mode détaché (background) :
+To run in detached mode (background):
 
 ```bash
 docker compose --env-file .env.dev -f docker-compose.dev.yml --profile dev up -d
 ```
 
-Pour reconstruire les images avant de lancer :
+To rebuild the images before starting:
 
 ```bash
 docker compose --env-file .env.dev -f docker-compose.dev.yml --profile dev up --build
 ```
 
-### Arrêt des services manuellement
+### Stopping Services Manually
 
-Pour arrêter tous les services :
+To stop all services:
 
 ```bash
 docker compose --env-file .env.dev -f docker-compose.dev.yml --profile dev down
 ```
 
-Pour réinitialiser complètement les bases de données, arrêtez et supprimez les conteneurs :
+To completely reset the databases, stop and remove the containers:
 
 ```bash
 docker compose --env-file .env.dev -f docker-compose.dev.yml --profile dev down
 docker compose --env-file .env.dev -f docker-compose.dev.yml --profile dev up
 ```
 
-Les scripts d'initialisation seront réexécutés automatiquement au prochain démarrage.
+The initialization scripts will be re-executed automatically on the next startup.
 
-## Accès aux services
+## Accessing Services
 
-| Service | Port hote | Port conteneur | Protocole | Usage |
+| Service | Host Port | Container Port | Protocol | Usage |
 |---|---:|---:|---|---|
 | `crm-database` | `8080` | `5432` | `tcp` | PostgreSQL CRM |
 | `keycloak-db` | `8081` | `5432` | `tcp` | PostgreSQL Keycloak |
-| `keycloak` | `8082` | `8080` | `tcp` | Authentification Keycloak |
-| `openfiles` | `8083` | `8001` | `tcp` | Service de fichiers |
-| `jaeger` | `8085` | `16686` | `tcp` | Interface Jaeger |
-| `jaeger` | `8084` | `6831` | `udp` | Collecteur Jaeger |
+| `keycloak` | `8082` | `8080` | `tcp` | Keycloak Authentication |
+| `openfiles` | `8083` | `8001` | `tcp` | File service |
+| `jaeger` | `8085` | `16686` | `tcp` | Jaeger UI |
+| `jaeger` | `8084` | `6831` | `udp` | Jaeger Collector |
 | `krakend` | `8086` | `8080` | `tcp` | API Gateway |
 | `reverse-proxy` | `8087` | `80` | `tcp` | HTTP reverse proxy |
 | `reverse-proxy` | `8088` | `443` | `tcp` | HTTPS reverse proxy |
-| `crm-backend` | `8089` | `80` | `tcp` | API backend |
-| `crm-frontend` | `8090` | `80` | `tcp` | Interface frontend |
+| `crm-backend` | `8089` | `80` | `tcp` | Backend API |
+| `crm-frontend` | `8090` | `80` | `tcp` | Frontend interface |
