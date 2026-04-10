@@ -10,9 +10,13 @@
       "username": "service-account-optimce-backend",
       "enabled": true,
       "serviceAccountClientId": "optimce-backend",
-      "realmRoles": ["default-roles-optimce-realm"],
+      "realmRoles": [
+        "default-roles-optimce-realm"
+      ],
       "clientRoles": {
-        "realm-management": ["realm-admin"]
+        "realm-management": [
+          "realm-admin"
+        ]
       }
     },
     {
@@ -29,7 +33,9 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["default-roles-optimce-realm"]
+      "realmRoles": [
+        "default-roles-optimce-realm"
+      ]
     }
   ],
   "clients": [
@@ -43,17 +49,36 @@
       "attributes": {
         "realm_client": "true"
       },
-      "defaultClientScopes": ["web-origins", "roles", "profile", "email", "basic", "acr"]
+      "defaultClientScopes": [
+        "web-origins",
+        "roles",
+        "profile",
+        "email",
+        "basic",
+        "acr"
+      ]
     },
     {
       "clientId": "optimce-frontend",
       "enabled": true,
       "publicClient": true,
-      "redirectUris": ["${FRONTEND_BASE_URL}/*"],
-      "webOrigins": ["${FRONTEND_BASE_URL}"],
+      "redirectUris": [
+        "${FRONTEND_BASE_URL}/*"
+      ],
+      "webOrigins": [
+        "${FRONTEND_BASE_URL}"
+      ],
       "standardFlowEnabled": true,
       "protocol": "openid-connect",
-      "defaultClientScopes": ["web-origins", "roles", "profile", "email", "basic", "acr"]
+      "defaultClientScopes": [
+        "web-origins",
+        "roles",
+        "profile",
+        "email",
+        "basic",
+        "acr",
+        "optimce-mappers"
+      ]
     },
     {
       "clientId": "optimce-backend",
@@ -67,7 +92,17 @@
       "publicClient": false,
       "protocol": "openid-connect",
       "fullScopeAllowed": true,
-      "defaultClientScopes": ["web-origins", "roles", "profile", "email", "basic", "acr", "service_account", "realm-management-audience"]
+      "defaultClientScopes": [
+        "web-origins",
+        "roles",
+        "profile",
+        "email",
+        "basic",
+        "acr",
+        "service_account",
+        "realm-management-audience",
+        "optimce-mappers"
+      ]
     }
   ],
   "clientScopes": [
@@ -280,6 +315,46 @@
             "jsonType.label": "String",
             "multivalued": "true",
             "client.id": "realm-management"
+          }
+        }
+      ]
+    },
+    {
+      "name": "optimce-mappers",
+      "description": "Custom mappers for OptimCE: org structure with roles and group membership",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "orgs",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-orgs-with-roles-mapper",
+          "consentRequired": false,
+          "config": {
+            "lightweight.claim": "true",
+            "claimName": "orgs",
+            "introspection.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "rolesMode": "loose"
+          }
+        },
+        {
+          "name": "group-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "full.path": "true",
+            "introspection.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "lightweight.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "groups"
           }
         }
       ]
