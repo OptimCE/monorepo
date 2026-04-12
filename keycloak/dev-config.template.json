@@ -35,7 +35,8 @@
       ],
       "realmRoles": [
         "default-roles-optimce-realm"
-      ]
+      ],
+      "groups": ["/Test Community/ADMIN"]
     }
   ],
   "clients": [
@@ -358,6 +359,48 @@
           }
         }
       ]
+    }
+  ],
+  "groups": [
+    {
+      "id": "2c8a0ea5-d597-49d6-ae12-4dceb9e9a018",
+      "name": "Test Community",
+      "path": "/Test Community",
+      "subGroups": [
+        {
+          "id": "test-community-admin",
+          "name": "ADMIN",
+          "path": "/Test Community/ADMIN",
+          "parentId": "1",
+          "subGroups": [],
+          "attributes": {},
+          "realmRoles": [],
+          "clientRoles": {}
+        },
+        {
+          "id": "test-community-manager",
+          "name": "MANAGER",
+          "path": "/Test Community/MANAGER",
+          "parentId": "1",
+          "subGroups": [],
+          "attributes": {},
+          "realmRoles": [],
+          "clientRoles": {}
+        },
+        {
+          "id": "test-community-member",
+          "name": "MEMBER",
+          "path": "/Test Community/MEMBER",
+          "parentId": "1",
+          "subGroups": [],
+          "attributes": {},
+          "realmRoles": [],
+          "clientRoles": {}
+        }
+      ],
+      "attributes": {},
+      "realmRoles": [],
+      "clientRoles": {}
     }
   ]
 }
