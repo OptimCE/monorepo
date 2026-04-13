@@ -234,7 +234,7 @@ services:
   keycloak-theme-init:
     profiles: ["init"]
     build:
-      context: keycloakify
+      context: optimce-keycloak-theme
       dockerfile: Dockerfile
     volumes:
       - ./keycloak/providers:/output
