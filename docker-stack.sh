@@ -3,7 +3,7 @@ set -euo pipefail
 
 COMPOSE_FILE="./docker-compose.dev.yml"
 ENV_FILE="./.env.dev"
-PULL_IMAGES=true
+PULL_IMAGES=false
 BUILD_IMAGES=true
 SKIP_INIT=false
 TARGET_SERVICE=""
@@ -13,16 +13,21 @@ usage() {
 Usage: ./docker-stack.sh <command> [options]
 
 Commands:
-    start      Pull/build (optional), run init profile, then start dev profile
+    start      Run init profile (build theme), then start dev profile
     stop       Stop and remove init/dev profiles
-    restart    Stop then start
+    restart    Stop then start (does not pull images by default)
     help       Show this help message
 
-Options (for start/restart):
-    --no-pull                  Skip image pull before starting
+Options (for start):
+    --pull                     Pull images before starting (not default for start)
     --build                    Force build before starting (default: enabled)
     --no-build                 Skip build before starting
     --skip-init                Skip init profile and start dev profile directly
+
+Options (for restart):
+    --pull                     Pull images before starting
+    --build                    Force build before starting (default: enabled)
+    --no-build                 Skip build before starting
 
 Options (for start/stop/restart):
     -s, --service <name>       Target a specific service instead of the full stack
@@ -124,8 +129,8 @@ stop_stack() {
 parse_start_options() {
     while [ "$#" -gt 0 ]; do
         case "$1" in
-            --no-pull)
-                PULL_IMAGES=false
+            --pull)
+                PULL_IMAGES=true
                 ;;
             --build)
                 BUILD_IMAGES=true

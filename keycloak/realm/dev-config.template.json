@@ -2,6 +2,7 @@
   "id": "5943347c-fc15-4281-b51a-a678f117efe8",
   "realm": "optimce-realm",
   "enabled": true,
+  "loginTheme": "optimce",
   "registrationAllowed": true,
   "accessTokenLifespan": 300,
   "defaultSignatureAlgorithm": "RS256",
@@ -64,10 +65,10 @@
       "enabled": true,
       "publicClient": true,
       "redirectUris": [
-        "${FRONTEND_BASE_URL}/*"
+        "${DOMAIN}:8087/*"
       ],
       "webOrigins": [
-        "${FRONTEND_BASE_URL}"
+        "${DOMAIN}:8087"
       ],
       "standardFlowEnabled": true,
       "protocol": "openid-connect",

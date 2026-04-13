@@ -10,3 +10,6 @@
 [submodule "krakend/swagger2krakend"]
 	path = krakend/swagger2krakend
 	url = ../swagger2krakend.git
+[submodule "optimce-keycloak-theme"]
+	path = optimce-keycloak-theme
+	url = ../optimce-keycloak-theme.git
