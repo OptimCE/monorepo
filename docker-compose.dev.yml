@@ -100,8 +100,13 @@ services:
     depends_on:
       minio:
         condition: service_healthy
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - STORAGE_BUCKET=${STORAGE_BUCKET:-crm-files}
     entrypoint: >
       /bin/sh -c "
+      sleep 5;
       mc alias set local http://minio:9000 $${MINIO_ROOT_USER:-minioadmin} $${MINIO_ROOT_PASSWORD:-minioadmin};
       mc mb --ignore-existing local/$${STORAGE_BUCKET:-crm-files};
       exit 0;
