@@ -177,3 +177,5 @@ The initialization scripts will be re-executed automatically on the next startup
 | `reverse-proxy` | `8088` | `443` | `tcp` | HTTPS reverse proxy |
 | `crm-backend` | `8089` | `80` | `tcp` | Backend API |
 | `crm-frontend` | `8090` | `80` | `tcp` | Frontend interface |
+| `minio` | `8091` | `9000` | `tcp` | MinIO API |
+| `minio` | `8092` | `9001` | `tcp` | MinIO Console |
