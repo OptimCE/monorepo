@@ -14,7 +14,11 @@ services:
     networks:
       - backend
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost || exit 1",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,7 +37,11 @@ services:
     networks:
       - backend
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost || exit 1",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -45,7 +53,14 @@ services:
       context: keycloak
       dockerfile: Dockerfile
     restart: unless-stopped
-    command: ["start-dev", "--import-realm", "--verbose", "--proxy-headers=xforwarded", "--http-relative-path=/keycloak"]
+    command:
+      [
+        "start-dev",
+        "--import-realm",
+        "--verbose",
+        "--proxy-headers=xforwarded",
+        "--http-relative-path=/keycloak",
+      ]
     environment:
       - KEYCLOAK_ADMIN=admin
       - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD}
@@ -76,7 +91,7 @@ services:
 
   minio:
     profiles: ["dev"]
-    image: minio/minio:latest
+    image: pgsty/minio:latest
     command: server /data --console-address ":9001"
     restart: unless-stopped
     environment:
@@ -99,7 +114,7 @@ services:
 
   minio-init:
     profiles: ["dev"]
-    image: minio/mc:latest
+    image: pgsty/mc:latest
     depends_on:
       minio:
         condition: service_healthy
@@ -128,7 +143,7 @@ services:
       - COLLECTOR_OTLP_ENABLED=true
     networks:
       - backend
-    
+
   swagger-doc-gen:
     profiles: ["init", "dev"]
     build:
@@ -242,7 +257,10 @@ services:
     volumes:
       - ./keycloak/providers:/output
     entrypoint: ["/bin/sh", "-c"]
-    command: ["apt-get update -qq && apt-get install -y -qq unzip && mkdir -p /theme-fix /dist && cd /theme-fix && unzip -o /app/dist_keycloak/keycloak-theme-for-kc-all-other-versions.jar && mv theme/keycloakify-starter theme/optimce && echo '{\"themes\":[{\"name\":\"optimce\",\"types\":[\"login\"]}]}' > META-INF/keycloak-themes.json && zip -r /dist/keycloak-theme-for-kc-all-other-versions.jar META-INF theme && cp /dist/keycloak-theme-for-kc-all-other-versions.jar /output/ && ls -la /output/"]
+    command:
+      [
+        'apt-get update -qq && apt-get install -y -qq unzip && mkdir -p /theme-fix /dist && cd /theme-fix && unzip -o /app/dist_keycloak/keycloak-theme-for-kc-all-other-versions.jar && mv theme/keycloakify-starter theme/optimce && echo ''{"themes":[{"name":"optimce","types":["login"]}]}'' > META-INF/keycloak-themes.json && zip -r /dist/keycloak-theme-for-kc-all-other-versions.jar META-INF theme && cp /dist/keycloak-theme-for-kc-all-other-versions.jar /output/ && ls -la /output/',
+      ]
 
   keycloak-mapper-init:
     profiles: ["init"]
@@ -253,7 +271,8 @@ services:
     volumes:
       - ./keycloak/providers:/output
     entrypoint: ["/bin/sh", "-c"]
-    command: ["cp /app/target/kc-groupid-mapper-*.jar /output/ && ls -la /output/"]
+    command:
+      ["cp /app/target/kc-groupid-mapper-*.jar /output/ && ls -la /output/"]
 
   keycloak-config:
     profiles: ["init", "dev"]
@@ -294,13 +313,13 @@ services:
         envsubst < /tmp/template.conf | sed 's/§/$/g' > /output/default.conf
 
   crm-frontend-config:
-    profiles : ["init", "dev"]
+    profiles: ["init", "dev"]
     image: ghcr.io/ourouk/alpine-envsubst:main@sha256:10899e32576d793f054ddbf23889dc6ef6295726d350a377efc110a976c1a11e
     env_file:
       - .env.dev
     volumes:
       - ./crm-frontend-config:/config
-    command: 
+    command:
       - < /config/config.template.json > /config/config.json
 
   crm-frontend:
