@@ -87,7 +87,6 @@ services:
     volumes:
       - ./keycloak/realm/dev-config.json:/opt/keycloak/data/import/realm-config.json
       - ./keycloak/themes:/opt/keycloak/themes
-      - ./keycloak/providers:/opt/keycloak/providers
 
   minio:
     profiles: ["dev"]
