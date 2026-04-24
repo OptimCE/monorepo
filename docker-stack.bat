@@ -4,7 +4,7 @@ setlocal enabledelayedexpansion
 rem ===== Defaults =====
 set "COMPOSE_FILE=.\docker-compose.dev.yml"
 set "ENV_FILE=.\.env.dev"
-set "PULL_IMAGES=true"
+set "PULL_IMAGES=false"
 set "BUILD_IMAGES=true"
 set "SKIP_INIT=false"
 set "TARGET_SERVICE="
@@ -35,7 +35,7 @@ rem Start / Restart argument parsing
 rem ===================================================================
 :parse_start
 if "%~1"=="" goto :parse_start_done
-if /i "%~1"=="--no-pull"   ( set "PULL_IMAGES=false"  & shift & goto :parse_start )
+if /i "%~1"=="--pull"      ( set "PULL_IMAGES=true"   & shift & goto :parse_start )
 if /i "%~1"=="--build"     ( set "BUILD_IMAGES=true"  & shift & goto :parse_start )
 if /i "%~1"=="--no-build"  ( set "BUILD_IMAGES=false" & shift & goto :parse_start )
 if /i "%~1"=="--skip-init" ( set "SKIP_INIT=true"     & shift & goto :parse_start )
@@ -91,16 +91,21 @@ rem ===================================================================
 echo Usage: docker-stack.bat ^<command^> [options]
 echo.
 echo Commands:
-echo     start      Pull/build (optional), run init profile, then start dev profile
+echo     start      Run init profile (build theme), then start dev profile
 echo     stop       Stop and remove init/dev profiles
-echo     restart    Stop then start
+echo     restart    Stop then start (does not pull images by default)
 echo     help       Show this help message
 echo.
-echo Options (for start/restart):
-echo     --no-pull                  Skip image pull before starting
+echo Options (for start):
+echo     --pull                     Pull images before starting (not default for start)
 echo     --build                    Force build before starting (default: enabled)
 echo     --no-build                 Skip build before starting
 echo     --skip-init                Skip init profile and start dev profile directly
+echo.
+echo Options (for restart):
+echo     --pull                     Pull images before starting
+echo     --build                    Force build before starting (default: enabled)
+echo     --no-build                 Skip build before starting
 echo.
 echo Options (for start/stop/restart):
 echo     -s, --service ^<name^>       Target a specific service instead of the full stack

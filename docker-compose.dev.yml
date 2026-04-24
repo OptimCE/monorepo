@@ -71,8 +71,6 @@ services:
         condition: service_completed_successfully
     volumes:
       - ./keycloak/realm/dev-config.json:/opt/keycloak/data/import/realm-config.json
-      - ./keycloak/themes:/opt/keycloak/themes
-      - ./keycloak/providers:/opt/keycloak/providers
 
   minio:
     profiles: ["dev"]
@@ -241,17 +239,6 @@ services:
       - ./keycloak/providers:/output
     entrypoint: ["/bin/sh", "-c"]
     command: ["apt-get update -qq && apt-get install -y -qq unzip && mkdir -p /theme-fix /dist && cd /theme-fix && unzip -o /app/dist_keycloak/keycloak-theme-for-kc-all-other-versions.jar && mv theme/keycloakify-starter theme/optimce && echo '{\"themes\":[{\"name\":\"optimce\",\"types\":[\"login\"]}]}' > META-INF/keycloak-themes.json && zip -r /dist/keycloak-theme-for-kc-all-other-versions.jar META-INF theme && cp /dist/keycloak-theme-for-kc-all-other-versions.jar /output/ && ls -la /output/"]
-
-  keycloak-mapper-init:
-    profiles: ["init"]
-    build:
-      context: keycloak
-      dockerfile: Dockerfile
-      target: builder
-    volumes:
-      - ./keycloak/providers:/output
-    entrypoint: ["/bin/sh", "-c"]
-    command: ["cp /app/target/kc-groupid-mapper-*.jar /output/ && ls -la /output/"]
 
   keycloak-config:
     profiles: ["init", "dev"]
