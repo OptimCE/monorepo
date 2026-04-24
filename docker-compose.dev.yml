@@ -14,7 +14,11 @@ services:
     networks:
       - backend
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost || exit 1",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,7 +37,11 @@ services:
     networks:
       - backend
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost || exit 1",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -45,7 +53,14 @@ services:
       context: keycloak
       dockerfile: Dockerfile
     restart: unless-stopped
-    command: ["start-dev", "--import-realm", "--verbose", "--proxy-headers=xforwarded", "--http-relative-path=/keycloak"]
+    command:
+      [
+        "start-dev",
+        "--import-realm",
+        "--verbose",
+        "--proxy-headers=xforwarded",
+        "--http-relative-path=/keycloak",
+      ]
     environment:
       - KEYCLOAK_ADMIN=admin
       - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD}
@@ -74,7 +89,7 @@ services:
 
   minio:
     profiles: ["dev"]
-    image: minio/minio:latest
+    image: pgsty/minio:latest
     command: server /data --console-address ":9001"
     restart: unless-stopped
     environment:
@@ -97,7 +112,7 @@ services:
 
   minio-init:
     profiles: ["dev"]
-    image: minio/mc:latest
+    image: pgsty/mc:latest
     depends_on:
       minio:
         condition: service_healthy
@@ -126,7 +141,7 @@ services:
       - COLLECTOR_OTLP_ENABLED=true
     networks:
       - backend
-    
+
   swagger-doc-gen:
     profiles: ["init", "dev"]
     build:
@@ -175,9 +190,11 @@ services:
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d
       - ./nginx/certs:/etc/nginx/certs
-    networks:      
+    networks:
       - reverse-proxy
     depends_on:
+      nginx-config:
+        condition: service_completed_successfully
       krakend:
         condition: service_started
 
@@ -209,8 +226,8 @@ services:
       - STORAGE_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
       - STORAGE_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
       - STORAGE_PUBLIC_ENDPOINT=${MINIO_PUBLIC_ENDPOINT}
-      - REMOTE_LOGGING=true
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+      - REMOTE_LOGGING=${REMOTE_LOGGING}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
       - DB_TYPE=postgres
       - DB_HOST=crm-database
@@ -240,14 +257,42 @@ services:
     command:
       - < /config/dev-config.template.json > /config/dev-config.json
 
+  nginx-config:
+    profiles: ["init", "dev"]
+    image: ghcr.io/ourouk/alpine-envsubst:main@sha256:10899e32576d793f054ddbf23889dc6ef6295726d350a377efc110a976c1a11e
+    env_file:
+      - .env.dev
+    environment:
+      - CRM_FRONTEND_UPSTREAM=crm-frontend:80
+      - KRAKEND_UPSTREAM=krakend:8080
+      - KEYCLOAK_UPSTREAM=keycloak:8080
+      - MINIO_UPSTREAM=minio:9000
+      - CRM_FRONTEND_PROTOCOL=http
+      - KRAKEND_PROTOCOL=http
+      - KEYCLOAK_PROTOCOL=http
+      - MINIO_PROTOCOL=http
+    volumes:
+      - ./nginx/conf-template.d:/config
+      - ./nginx/conf.d:/output
+    entrypoint: /bin/sh
+    command:
+      - "-c"
+      - |
+        if [ "${USE_HTTPS}" = "true" ]; then
+          cp /config/default-https.template.conf /tmp/template.conf;
+        else
+          cp /config/default-http.template.conf /tmp/template.conf;
+        fi
+        envsubst < /tmp/template.conf | sed 's/§/$/g' > /output/default.conf
+
   crm-frontend-config:
-    profiles : ["init", "dev"]
+    profiles: ["init", "dev"]
     image: ghcr.io/ourouk/alpine-envsubst:main@sha256:10899e32576d793f054ddbf23889dc6ef6295726d350a377efc110a976c1a11e
     env_file:
       - .env.dev
     volumes:
       - ./crm-frontend-config:/config
-    command: 
+    command:
       - < /config/config.template.json > /config/config.json
 
   crm-frontend:

@@ -2,3 +2,4 @@ crm-frontend-config/config.json
 krakend/config/krakend.json
 krakend/config/root.yaml
 keycloak/realm/dev-config.json
+nginx/conf.d/default.conf
