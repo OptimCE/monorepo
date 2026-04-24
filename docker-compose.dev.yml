@@ -230,16 +230,6 @@ services:
       jaeger:
         condition: service_started
 
-  keycloak-theme-init:
-    profiles: ["init"]
-    build:
-      context: optimce-keycloak-theme
-      dockerfile: Dockerfile
-    volumes:
-      - ./keycloak/providers:/output
-    entrypoint: ["/bin/sh", "-c"]
-    command: ["apt-get update -qq && apt-get install -y -qq unzip && mkdir -p /theme-fix /dist && cd /theme-fix && unzip -o /app/dist_keycloak/keycloak-theme-for-kc-all-other-versions.jar && mv theme/keycloakify-starter theme/optimce && echo '{\"themes\":[{\"name\":\"optimce\",\"types\":[\"login\"]}]}' > META-INF/keycloak-themes.json && zip -r /dist/keycloak-theme-for-kc-all-other-versions.jar META-INF theme && cp /dist/keycloak-theme-for-kc-all-other-versions.jar /output/ && ls -la /output/"]
-
   keycloak-config:
     profiles: ["init", "dev"]
     image: ghcr.io/ourouk/alpine-envsubst:main@sha256:10899e32576d793f054ddbf23889dc6ef6295726d350a377efc110a976c1a11e
