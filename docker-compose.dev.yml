@@ -89,7 +89,7 @@ services:
 
   minio:
     profiles: ["dev"]
-    image: pgsty/minio:latest
+    image: pgsty/minio:latest@sha256:83885c27b3b5b673049e33ddf4029afe2c134fd51ce4309e65e4f39d3b9ca282
     command: server /data --console-address ":9001"
     restart: unless-stopped
     environment:
@@ -112,7 +112,7 @@ services:
 
   minio-init:
     profiles: ["dev"]
-    image: pgsty/mc:latest
+    image: pgsty/mc:latest@sha256:873e0b44e9fe7072bb9a0982dfbbb801bab4abb64b0957fe40b8cd8f631694dd
     depends_on:
       minio:
         condition: service_healthy
