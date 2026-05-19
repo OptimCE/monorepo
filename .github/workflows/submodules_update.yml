@@ -25,15 +25,14 @@ jobs:
         run: |
           git submodule update --remote --merge ${{ github.event.client_payload.repo }}
 
+      - name: Commit and push changes
+        run: |
+          git add .
 
-      - name: Create Pull Request if changed
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore: auto-update submodules"
-          branch: chore/update-submodules
-          title: "chore: auto-update submodules"
-          body: |
-            This PR was automatically created because a submodule was updated.
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
 
-            Please review the updated submodule commits before merging.
+          git commit -m "chore: update submodule ${{ github.event.client_payload.repo }}"
+          git push origin HEAD
