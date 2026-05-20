@@ -13,3 +13,6 @@
 [submodule "optimce-keycloak-theme"]
 	path = keycloak/optimce-keycloak-theme
 	url = ../optimce-keycloak-theme.git
+[submodule "allocation-key-generation"]
+	path = allocation-key-generation
+	url = ../allocation-key-generation.git

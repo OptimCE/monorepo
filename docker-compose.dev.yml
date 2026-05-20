@@ -47,6 +47,31 @@ services:
       retries: 5
       start_period: 30s
 
+  allocation-key-db:
+    profiles: ["dev"]
+    image: postgres:18-alpine@sha256:4da1a4828be12604092fa55311276f08f9224a74a62dcb4708bd7439e2a03911
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=allocation_key_local
+      - POSTGRES_PASSWORD=${ALLOCATION_KEY_DB_PASSWORD}
+    volumes:
+      - ./allocation-key-generation/scripts/sql/schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "8093:5432"
+    networks:
+      - backend
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   keycloak:
     profiles: ["dev"]
     build:
@@ -130,6 +155,29 @@ services:
     networks:
       - backend
 
+  nats:
+    profiles: ["dev"]
+    image: nats:2.10-alpine
+    restart: unless-stopped
+    command: ["-js", "-m", "8222", "-sd", "/data"]
+    ports:
+      - "8094:4222"
+      - "8095:8222"
+    volumes:
+      - nats_data:/data
+    networks:
+      - backend
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q -O - 'http://localhost:8222/healthz?js-enabled-only=true' || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
   jaeger:
     profiles: ["dev"]
     image: jaegertracing/jaeger:latest@sha256:bf7f805da4c2bc8d58a6c81ee650fdb6b8e4287698f95fbe231c09c865bc397f
@@ -151,6 +199,20 @@ services:
       - ./krakend/config:/app/docs/openapi
     command: sh -c "npm run swagger && sleep 3 && mv /app/docs/openapi/swagger.yaml /app/docs/openapi/root.yaml"
 
+  generation-doc-gen:
+    profiles: ["init", "dev"]
+    build:
+      context: allocation-key-generation
+      dockerfile: Dockerfile
+    volumes:
+      - ./krakend/config:/output
+    environment:
+      - ENV=local
+      - CRM_DATABASE_URL=postgresql+asyncpg://placeholder:placeholder@placeholder:5432/placeholder
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://placeholder:placeholder@placeholder:5432/placeholder
+      - ALLOW_ORIGIN=*
+    entrypoint: ["python", "scripts/export_openapi.py", "/output/generation.json"]
+
   krakend-config:
     profiles: ["init", "dev"]
     build:
@@ -163,6 +225,8 @@ services:
       - OUTPUT_FILE=/config/krakend.json
     depends_on:
       swagger-doc-gen:
+        condition: service_completed_successfully
+      generation-doc-gen:
         condition: service_completed_successfully
 
   krakend:
@@ -177,6 +241,8 @@ services:
       - reverse-proxy
     depends_on:
       crm-backend:
+        condition: service_started
+      allocation-key-generation:
         condition: service_started
       keycloak:
         condition: service_started
@@ -247,6 +313,82 @@ services:
       jaeger:
         condition: service_started
 
+  allocation-key-generation:
+    profiles: ["dev"]
+    build:
+      context: allocation-key-generation
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - ENV=local
+      - CRM_DATABASE_URL=postgresql+asyncpg://postgres:${CRM_DB_PASSWORD}@crm-database:5432/crm_db
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://postgres:${ALLOCATION_KEY_DB_PASSWORD}@allocation-key-db:5432/allocation_key_local
+      - NATS_URL=nats://nats:4222
+      - ALLOW_ORIGIN=*
+      - CRM_DB_POOL_SIZE=5
+      - CRM_DB_MAX_OVERFLOW=5
+      - LOCAL_DB_POOL_SIZE=5
+      - LOCAL_DB_MAX_OVERFLOW=5
+      - STORAGE_ENDPOINT=${STORAGE_API_URL}
+      - STORAGE_BUCKET=${STORAGE_BUCKET:-crm-files}
+      - STORAGE_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - STORAGE_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - STORAGE_REGION=us-east-1
+    ports:
+      - "8002:8000"
+    networks:
+      - backend
+    depends_on:
+      allocation-key-db:
+        condition: service_healthy
+      crm-database:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health/readiness', timeout=3).status==200 else 1)\""
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+  allocation-key-generation-worker:
+    profiles: ["dev"]
+    build:
+      context: allocation-key-generation
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    environment:
+      - ENV=local
+      - CRM_DATABASE_URL=postgresql+asyncpg://postgres:${CRM_DB_PASSWORD}@crm-database:5432/crm_db
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://postgres:${ALLOCATION_KEY_DB_PASSWORD}@allocation-key-db:5432/allocation_key_local
+      - NATS_URL=nats://nats:4222
+      - ALLOW_ORIGIN=*
+      - CRM_DB_POOL_SIZE=5
+      - CRM_DB_MAX_OVERFLOW=5
+      - LOCAL_DB_POOL_SIZE=5
+      - LOCAL_DB_MAX_OVERFLOW=5
+      - STORAGE_ENDPOINT=${STORAGE_API_URL}
+      - STORAGE_BUCKET=${STORAGE_BUCKET:-crm-files}
+      - STORAGE_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - STORAGE_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - STORAGE_REGION=us-east-1
+    networks:
+      - backend
+    depends_on:
+      allocation-key-db:
+        condition: service_healthy
+      crm-database:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+
   keycloak-config:
     profiles: ["init", "dev"]
     image: ghcr.io/ourouk/alpine-envsubst:main@sha256:10899e32576d793f054ddbf23889dc6ef6295726d350a377efc110a976c1a11e
@@ -311,6 +453,7 @@ services:
 
 volumes:
   minio_data:
+  nats_data:
 
 networks:
   backend:

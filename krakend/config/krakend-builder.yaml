@@ -9,3 +9,6 @@ services:
   root:
     swagger: /config/root.yaml
     host: crm-backend:80
+  generation:
+    swagger: /config/generation.json
+    host: allocation-key-generation:8000
