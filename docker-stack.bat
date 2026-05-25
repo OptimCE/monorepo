@@ -159,9 +159,9 @@ if "%PULL_IMAGES%"=="true" (
 if "%SKIP_INIT%"=="false" (
     echo Running init profile...
     if "%BUILD_IMAGES%"=="true" (
-        %DOCKER_COMPOSE_CMD% -f "%COMPOSE_FILE%" --profile init --env-file "%ENV_FILE%" up --build --abort-on-container-exit --remove-orphans || exit /b 1
+        %DOCKER_COMPOSE_CMD% -f "%COMPOSE_FILE%" --profile init --env-file "%ENV_FILE%" up --build --exit-code-from krakend-config --remove-orphans || exit /b 1
     ) else (
-        %DOCKER_COMPOSE_CMD% -f "%COMPOSE_FILE%" --profile init --env-file "%ENV_FILE%" up --abort-on-container-exit --remove-orphans || exit /b 1
+        %DOCKER_COMPOSE_CMD% -f "%COMPOSE_FILE%" --profile init --env-file "%ENV_FILE%" up --exit-code-from krakend-config --remove-orphans || exit /b 1
     )
     %DOCKER_COMPOSE_CMD% -f "%COMPOSE_FILE%" --profile init --env-file "%ENV_FILE%" down --remove-orphans || exit /b 1
 ) else (
