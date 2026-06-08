@@ -12,3 +12,6 @@ services:
   generation:
     swagger: /config/generation.json
     host: allocation-key-generation:8000
+  simulation:
+    swagger: /config/simulation.json
+    host: simulation-key:8000

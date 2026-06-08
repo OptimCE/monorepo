@@ -16,3 +16,6 @@
 [submodule "allocation-key-generation"]
 	path = allocation-key-generation
 	url = ../allocation-key-generation.git
+[submodule "simulation-key"]
+	path = simulation-key
+	url = https://github.com/OptimCE/allocation-key-simulation
