@@ -405,6 +405,7 @@ services:
       context: allocation-key-generation
       dockerfile: Dockerfile.worker
     restart: unless-stopped
+    cpus: "2.0"
     environment:
       - ENV=local
       - CRM_DATABASE_URL=postgresql+asyncpg://postgres:${CRM_DB_PASSWORD}@crm-database:5432/crm_db
@@ -420,6 +421,9 @@ services:
       - STORAGE_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
       - STORAGE_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
       - STORAGE_REGION=us-east-1
+      - OMP_NUM_THREADS=1
+      - OPENBLAS_NUM_THREADS=1
+      - MKL_NUM_THREADS=1
     networks:
       - backend
     depends_on:
@@ -481,6 +485,7 @@ services:
       context: simulation-key
       dockerfile: Dockerfile.worker
     restart: unless-stopped
+    cpus: "2.0"
     environment:
       - ENV=local
       - CRM_DATABASE_URL=postgresql+asyncpg://postgres:${CRM_DB_PASSWORD}@crm-database:5432/crm_db
@@ -496,6 +501,9 @@ services:
       - STORAGE_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
       - STORAGE_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
       - STORAGE_REGION=us-east-1
+      - OMP_NUM_THREADS=1
+      - OPENBLAS_NUM_THREADS=1
+      - MKL_NUM_THREADS=1
     networks:
       - backend
     depends_on:
