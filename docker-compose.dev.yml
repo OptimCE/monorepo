@@ -139,7 +139,7 @@ services:
 
   minio:
     profiles: ["dev"]
-    image: pgsty/minio:latest
+    image: pgsty/minio:latest@sha256:dacff8306a6e0a734518533992dbdcca26bc1ca47f77cf47cb9945725f92b29b
     command: server /data --console-address ":9001"
     restart: unless-stopped
     environment:
@@ -162,7 +162,7 @@ services:
 
   minio-init:
     profiles: ["dev"]
-    image: pgsty/mc:latest
+    image: pgsty/mc:latest@sha256:873e0b44e9fe7072bb9a0982dfbbb801bab4abb64b0957fe40b8cd8f631694dd
     depends_on:
       minio:
         condition: service_healthy
@@ -182,7 +182,7 @@ services:
 
   nats:
     profiles: ["dev"]
-    image: nats:2.10-alpine
+    image: nats:2.10-alpine@sha256:b83efabe3e7def1e0a4a31ec6e078999bb17c80363f881df35edc70fcb6bb927
     restart: unless-stopped
     command: ["-js", "-m", "8222", "-sd", "/data"]
     ports:
