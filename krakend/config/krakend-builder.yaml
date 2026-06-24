@@ -15,3 +15,6 @@ services:
   simulation:
     swagger: /config/simulation.json
     host: simulation-key:8000
+  news:
+    swagger: /config/news.json
+    host: optimce-news-board:8000

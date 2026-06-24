@@ -19,3 +19,6 @@
 [submodule "simulation-key"]
 	path = simulation-key
 	url = https://github.com/OptimCE/allocation-key-simulation
+[submodule "news-board"]
+	path = news-board
+	url = https://github.com/OptimCE/news-board.git
