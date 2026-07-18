@@ -97,6 +97,56 @@ services:
       retries: 5
       start_period: 30s
 
+  news-board-db:
+    profiles: ["dev"]
+    image: postgres:18-alpine@sha256:4da1a4828be12604092fa55311276f08f9224a74a62dcb4708bd7439e2a03911
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=news_board_local
+      - POSTGRES_PASSWORD=${NEWS_BOARD_DB_PASSWORD}
+    volumes:
+      - ./news-board/scripts/sql/schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "8097:5432"
+    networks:
+      - backend
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  billing-db:
+    profiles: ["dev"]
+    image: postgres:18-alpine@sha256:4da1a4828be12604092fa55311276f08f9224a74a62dcb4708bd7439e2a03911
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=billing_local
+      - POSTGRES_PASSWORD=${BILLING_DB_PASSWORD}
+    volumes:
+      - ./billing/scripts/sql/schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "8098:5432"
+    networks:
+      - backend
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   keycloak:
     profiles: ["dev"]
     build:
@@ -170,13 +220,20 @@ services:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
       - STORAGE_BUCKET=${STORAGE_BUCKET:-crm-files}
+      - TEMPLATES_BUCKET=${TEMPLATES_BUCKET:-optimce-templates}
+      - OUTPUT_BUCKET=${OUTPUT_BUCKET:-optimce-documents}
     entrypoint: >
       /bin/sh -c "
       sleep 5;
       mc alias set local ${STORAGE_API_URL} $${MINIO_ROOT_USER:-minioadmin} $${MINIO_ROOT_PASSWORD:-minioadmin};
       mc mb --ignore-existing local/$${STORAGE_BUCKET:-crm-files};
+      mc mb --ignore-existing local/$${TEMPLATES_BUCKET:-optimce-templates};
+      mc mb --ignore-existing local/$${OUTPUT_BUCKET:-optimce-documents};
+      mc cp --recursive /templates/billing local/$${TEMPLATES_BUCKET:-optimce-templates}/;
       exit 0;
       "
+    volumes:
+      - ./billing/document-templates:/templates:ro
     networks:
       - backend
 
@@ -252,6 +309,34 @@ services:
       - ALLOW_ORIGIN=*
     entrypoint: ["python", "scripts/export_openapi.py", "/output/simulation.json"]
 
+  news-doc-gen:
+    profiles: ["init", "dev"]
+    build:
+      context: news-board
+      dockerfile: Dockerfile
+    volumes:
+      - ./krakend/config:/output
+    environment:
+      - ENV=local
+      - CRM_DATABASE_URL=postgresql+asyncpg://placeholder:placeholder@placeholder:5432/placeholder
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://placeholder:placeholder@placeholder:5432/placeholder
+      - ALLOW_ORIGIN=*
+    entrypoint: ["python", "scripts/export_openapi.py", "/output/news.json"]
+
+  billing-doc-gen:
+    profiles: ["init", "dev"]
+    build:
+      context: billing
+      dockerfile: Dockerfile
+    volumes:
+      - ./krakend/config:/output
+    environment:
+      - ENV=local
+      - CRM_DATABASE_URL=postgresql+asyncpg://placeholder:placeholder@placeholder:5432/placeholder
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://placeholder:placeholder@placeholder:5432/placeholder
+      - ALLOW_ORIGIN=*
+    entrypoint: ["python", "scripts/export_openapi.py", "/output/billing.json"]
+
   krakend-config:
     profiles: ["init", "dev"]
     build:
@@ -268,6 +353,10 @@ services:
       generation-doc-gen:
         condition: service_completed_successfully
       simulation-doc-gen:
+        condition: service_completed_successfully
+      news-doc-gen:
+        condition: service_completed_successfully
+      billing-doc-gen:
         condition: service_completed_successfully
 
   krakend:
@@ -286,6 +375,10 @@ services:
       allocation-key-generation:
         condition: service_started
       simulation-key:
+        condition: service_started
+      optimce-news-board:
+        condition: service_started
+      billing:
         condition: service_started
       keycloak:
         condition: service_started
@@ -344,6 +437,9 @@ services:
       - DB_USERNAME=postgres
       - DB_PASSWORD=${CRM_DB_PASSWORD}
       - DB_NAME=crm_db
+      - REGULATORS_CONFIG_PATH=/app/reference/regulators.json
+    volumes:
+      - ./reference:/app/reference:ro
     ports:
       - "8089:80"
     networks:
@@ -511,6 +607,153 @@ services:
         condition: service_healthy
       crm-database:
         condition: service_healthy
+      nats:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+
+  optimce-news-board:
+    profiles: ["dev"]
+    build:
+      context: news-board
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - ENV=local
+      - CRM_DATABASE_URL=postgresql+asyncpg://postgres:${CRM_DB_PASSWORD}@crm-database:5432/crm_db
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://postgres:${NEWS_BOARD_DB_PASSWORD}@news-board-db:5432/news_board_local
+      - ALLOW_ORIGIN=*
+      - CRM_DB_POOL_SIZE=5
+      - CRM_DB_MAX_OVERFLOW=5
+      - LOCAL_DB_POOL_SIZE=5
+      - LOCAL_DB_MAX_OVERFLOW=5
+    ports:
+      - "8004:8000"
+    networks:
+      - backend
+    depends_on:
+      news-board-db:
+        condition: service_healthy
+      crm-database:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health/readiness', timeout=3).status==200 else 1)\""
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+  billing:
+    profiles: ["dev"]
+    build:
+      context: billing
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - ENV=local
+      - CRM_DATABASE_URL=postgresql+asyncpg://postgres:${CRM_DB_PASSWORD}@crm-database:5432/crm_db
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://postgres:${BILLING_DB_PASSWORD}@billing-db:5432/billing_local
+      - NATS_URL=nats://nats:4222
+      - ALLOW_ORIGIN=*
+      - CRM_DB_POOL_SIZE=5
+      - CRM_DB_MAX_OVERFLOW=5
+      - LOCAL_DB_POOL_SIZE=5
+      - LOCAL_DB_MAX_OVERFLOW=5
+      - STORAGE_ENDPOINT=${STORAGE_API_URL}
+      - STORAGE_BUCKET=${STORAGE_BUCKET:-crm-files}
+      - OUTPUT_BUCKET=${OUTPUT_BUCKET:-optimce-documents}
+      - STORAGE_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - STORAGE_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - STORAGE_REGION=us-east-1
+      - REGULATORS_CONFIG_PATH=/app/reference/regulators.json
+      - DEFAULT_LOCALE=fr-BE
+    volumes:
+      - ./reference:/app/reference:ro
+    ports:
+      - "8005:8000"
+    networks:
+      - backend
+    depends_on:
+      billing-db:
+        condition: service_healthy
+      crm-database:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health/readiness', timeout=3).status==200 else 1)\""
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+  billing-worker:
+    profiles: ["dev"]
+    build:
+      context: billing
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    environment:
+      - ENV=local
+      - CRM_DATABASE_URL=postgresql+asyncpg://postgres:${CRM_DB_PASSWORD}@crm-database:5432/crm_db
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://postgres:${BILLING_DB_PASSWORD}@billing-db:5432/billing_local
+      - NATS_URL=nats://nats:4222
+      - ALLOW_ORIGIN=*
+      - CRM_DB_POOL_SIZE=5
+      - CRM_DB_MAX_OVERFLOW=5
+      - LOCAL_DB_POOL_SIZE=5
+      - LOCAL_DB_MAX_OVERFLOW=5
+      - STORAGE_ENDPOINT=${STORAGE_API_URL}
+      - STORAGE_BUCKET=${STORAGE_BUCKET:-crm-files}
+      - OUTPUT_BUCKET=${OUTPUT_BUCKET:-optimce-documents}
+      - STORAGE_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - STORAGE_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - STORAGE_REGION=us-east-1
+      - REGULATORS_CONFIG_PATH=/app/reference/regulators.json
+      - DEFAULT_LOCALE=fr-BE
+    volumes:
+      - ./reference:/app/reference:ro
+    networks:
+      - backend
+    depends_on:
+      billing-db:
+        condition: service_healthy
+      crm-database:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      # Start docgen first so its DOCGEN_RESULTS stream usually exists before we
+      # subscribe. Streams are created asynchronously after docgen starts, so the
+      # background subscribe-retry in worker/dispatcher.py is the real guarantee.
+      document-generation:
+        condition: service_started
+
+  document-generation:
+    profiles: ["dev"]
+    build:
+      context: document-generation
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    environment:
+      - ENV=local
+      - NATS_URL=nats://nats:4222
+      - STORAGE_ENDPOINT=${STORAGE_API_URL}
+      - TEMPLATES_BUCKET=${TEMPLATES_BUCKET:-optimce-templates}
+      - OUTPUT_BUCKET=${OUTPUT_BUCKET:-optimce-documents}
+      - STORAGE_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - STORAGE_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - STORAGE_REGION=us-east-1
+    networks:
+      - backend
+    depends_on:
       nats:
         condition: service_healthy
       minio-init:

@@ -18,7 +18,13 @@
 	url = ../allocation-key-generation.git
 [submodule "simulation-key"]
 	path = simulation-key
-	url = https://github.com/OptimCE/allocation-key-simulation
+	url = ../allocation-key-simulation.git
 [submodule "news-board"]
 	path = news-board
-	url = https://github.com/OptimCE/news-board.git
+	url = ../news-board.git
+[submodule "billing"]
+	path = billing
+	url = ../billing.git
+[submodule "document-generation"]
+	path = document-generation
+	url = ../document-generation.git

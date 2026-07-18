@@ -4,6 +4,7 @@
   "enabled": true,
   "loginTheme": "optimce",
   "registrationAllowed": true,
+  "resetPasswordAllowed": true,
   "accessTokenLifespan": 300,
   "defaultSignatureAlgorithm": "RS256",
   "users": [
