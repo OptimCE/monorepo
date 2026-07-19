@@ -1,0 +1,5 @@
+[
+  { "code": "BE-WAL-CWAPE", "label": "CWaPE", "region": "Wallonia", "country": "BE", "active": true },
+  { "code": "BE-BRU-BRUGEL", "label": "Brugel", "region": "Brussels", "country": "BE", "active": false },
+  { "code": "BE-VLA-VREG", "label": "VREG", "region": "Flanders", "country": "BE", "active": false }
+]
