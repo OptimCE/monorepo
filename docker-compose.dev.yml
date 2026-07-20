@@ -761,7 +761,7 @@ services:
 
   keycloak-config:
     profiles: ["init", "dev"]
-    image: ghcr.io/ourouk/alpine-envsubst:main@sha256:10899e32576d793f054ddbf23889dc6ef6295726d350a377efc110a976c1a11e
+    image: ghcr.io/ourouk/alpine-envsubst:main@sha256:eca35d4f7a7297458c92027c00e36e4543d1965de45d20914c163791caccbf95
     env_file:
       - .env.dev
     volumes:
@@ -771,7 +771,7 @@ services:
 
   nginx-config:
     profiles: ["init", "dev"]
-    image: ghcr.io/ourouk/alpine-envsubst:main@sha256:10899e32576d793f054ddbf23889dc6ef6295726d350a377efc110a976c1a11e
+    image: ghcr.io/ourouk/alpine-envsubst:main@sha256:eca35d4f7a7297458c92027c00e36e4543d1965de45d20914c163791caccbf95
     env_file:
       - .env.dev
     environment:
@@ -799,7 +799,7 @@ services:
 
   crm-frontend-config:
     profiles: ["init", "dev"]
-    image: ghcr.io/ourouk/alpine-envsubst:main@sha256:10899e32576d793f054ddbf23889dc6ef6295726d350a377efc110a976c1a11e
+    image: ghcr.io/ourouk/alpine-envsubst:main@sha256:eca35d4f7a7297458c92027c00e36e4543d1965de45d20914c163791caccbf95
     env_file:
       - .env.dev
     volumes:
