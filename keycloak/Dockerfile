@@ -11,7 +11,7 @@ COPY optimce-keycloak-theme/ .
 RUN npm run build-keycloak-theme
 
 # Extract, rename and repackage theme
-FROM ubuntu:jammy AS theme-extractor
+FROM ubuntu:resolute@sha256:5e275723f82c67e387ba9e3c24baa0abdcb268917f276a0561c97bef9450d0b4 AS theme-extractor
 RUN apt-get update -qq && apt-get install -y -qq unzip zip && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY --from=theme-builder /app/dist_keycloak/keycloak-theme-for-kc-all-other-versions.jar .
