@@ -1,5 +1,9 @@
 name: Update Submodules
 
+concurrency:
+  group: update-submodules
+  cancel-in-progress: false
+
 on:
   repository_dispatch:
     types: [submodule-updated]
