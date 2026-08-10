@@ -1,19 +1,68 @@
 services:
-  crm-database:
+  # ONE instance, six logical databases — crm_db, allocation_key_local,
+  # simulation_key_local, news_board_local, billing_local and
+  # administrative_document_local — each owned by its own login role.
+  #
+  # NOT one database with six schemas. Every service in the platform documents
+  # "cross-DB references are plain columns, never foreign keys", and separate
+  # databases are what enforce that by physics; merge them and someone
+  # eventually adds a real FK across a service boundary and the separation rots
+  # silently. Consolidating the INSTANCES keeps the boundary and still gives
+  # back five postmasters and five host ports.
+  #
+  # keycloak-db below stays its own container: Keycloak manages its own schema
+  # and runs its own migrations at boot, and it is the one blast radius we are
+  # not merging into the application's.
+  #
+  # See postgres/README.md.
+  postgres:
     profiles: ["dev"]
     image: postgres:18-alpine@sha256:4da1a4828be12604092fa55311276f08f9224a74a62dcb4708bd7439e2a03911
     restart: unless-stopped
+    # max_connections=300. The configured pools now all point at ONE instance:
+    #     9 Python processes x (CRM 5+5 + LOCAL 5+5) = 180
+    #     notification-dispatch (CRM only, 5+5)      =  10
+    #     crm-backend (node-postgres default max)    =  10
+    #                                                  ---
+    #                                                  200
+    # Seven instances each had their own default max_connections=100, so the
+    # ceiling was never met anywhere and nobody noticed. One instance meets all
+    # of it at once, and 100 is not enough. 300 = 200 + 3 superuser-reserved +
+    # headroom for postgres-init, the verify scripts, a human psql, and the
+    # overlap while compose recreates a container.
+    #
+    # shared_buffers=256MB — the seven instances reserved 7 x 128 MB between
+    # them; one at 256 MB is under a third of that.
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=300"
+      - "-c"
+      - "shared_buffers=256MB"
     environment:
       - POSTGRES_USER=postgres
-      - POSTGRES_DB=crm_db
-      - POSTGRES_PASSWORD=${CRM_DB_PASSWORD}
-    volumes:
-      - ./crm-backend/tests/sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - POSTGRES_DB=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_SUPERUSER_PASSWORD}
+    # Parallel query allocates its dynamic shared memory in /dev/shm. Docker's
+    # 64 MB default is what turns a large allocation-key run into "could not
+    # resize shared memory segment".
+    shm_size: 256mb
+    # NOTHING is mounted into /docker-entrypoint-initdb.d, deliberately: those
+    # scripts run only on an empty data directory and only against POSTGRES_DB,
+    # so they can neither converge a rotated password nor reach a second
+    # database. postgres-init below is the single provisioning path.
+    #
+    # No volume either, deliberately — dev databases stay ephemeral exactly as
+    # they were, re-seeded from the mounted SQL on a fresh container.
     ports:
       - "8080:5432"
     networks:
       - backend
     healthcheck:
+      # -h localhost (TCP) on purpose: the image entrypoint runs its bootstrap
+      # phase with listen_addresses='', so only a TCP probe is correctly red
+      # until the FINAL server is accepting. That is what makes
+      # `service_healthy` meaningful for the sidecar.
       test:
         [
           "CMD-SHELL",
@@ -24,6 +73,67 @@ services:
       retries: 5
       start_period: 30s
 
+  # Roles, databases, schemas, seeds and grants — converged on EVERY `up`,
+  # mirroring minio-init. Same pinned image as the server, so psql matches the
+  # server version exactly and there is no extra image to pull.
+  #
+  # profiles: ["dev"] only, NOT ["init", "dev"]: docker-stack.sh's init pass
+  # ends with `--profile init ... down`, which would tear the server back down.
+  #
+  # If this container exits non-zero the whole stack refuses to start, by
+  # design — a missing CRM grant produces no application error at all (the
+  # annexes swallow it), so a half-provisioned instance would be invisible.
+  postgres-init:
+    profiles: ["dev"]
+    image: postgres:18-alpine@sha256:4da1a4828be12604092fa55311276f08f9224a74a62dcb4708bd7439e2a03911
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - PGHOST=postgres
+      - PGPORT=5432
+      - PGUSER=postgres
+      - PGDATABASE=postgres
+      - PGPASSWORD=${POSTGRES_SUPERUSER_PASSWORD}
+      - CRM_DB_PASSWORD=${CRM_DB_PASSWORD}
+      - ALLOCATION_KEY_DB_PASSWORD=${ALLOCATION_KEY_DB_PASSWORD}
+      - SIMULATION_KEY_DB_PASSWORD=${SIMULATION_KEY_DB_PASSWORD}
+      - NEWS_BOARD_DB_PASSWORD=${NEWS_BOARD_DB_PASSWORD}
+      - BILLING_DB_PASSWORD=${BILLING_DB_PASSWORD}
+      - ADMINISTRATIVE_DOCUMENT_DB_PASSWORD=${ADMINISTRATIVE_DOCUMENT_DB_PASSWORD}
+      - NOTIFICATION_DISPATCH_DB_PASSWORD=${NOTIFICATION_DISPATCH_DB_PASSWORD}
+    entrypoint: ["/bin/sh", "/postgres/provision/provision.sh"]
+    volumes:
+      - ./postgres:/postgres:ro
+      # One mount per database, named by DATABASE and never by repo path — that
+      # indirection is what lets production run the same provision.sh against a
+      # different source (database_script/init.sql, or nothing at all before a
+      # pg_restore) with no edit. Every file is reused verbatim; this workstream
+      # forks none of them.
+      #
+      # NOTE: crm_db.sql opens with `DROP SCHEMA IF EXISTS public CASCADE` and
+      # carries the demo seed data. provision.sh applies it ONLY when the
+      # database has no tables — remove that guard and a restart wipes your
+      # local CRM data.
+      - ./crm-backend/tests/sql/init.sql:/schemas/crm_db.sql:ro
+      - ./allocation-key-generation/scripts/sql/schema.sql:/schemas/allocation_key_local.sql:ro
+      - ./simulation-key/scripts/sql/schema.sql:/schemas/simulation_key_local.sql:ro
+      - ./news-board/scripts/sql/schema.sql:/schemas/news_board_local.sql:ro
+      - ./billing/scripts/sql/schema.sql:/schemas/billing_local.sql:ro
+      - ./administrative-document/scripts/sql/schema.sql:/schemas/administrative_document_local.sql:ro
+      # Whole directory, applied in filename order AFTER the schema and on every
+      # run: these are region reference data (deadline rules + the template
+      # catalogue), idempotent by construction, and 0003 updates rows 0002
+      # creates.
+      - ./administrative-document/scripts/sql/seeds:/seeds/administrative_document_local:ro
+    networks:
+      - backend
+
+  # The one database instance that is NOT consolidated. Keycloak manages its own
+  # schema and runs its own migrations at boot, so its blast radius stays its
+  # own. A useful side effect: the six service roles above cannot even resolve a
+  # network route to this instance, which is a stronger guarantee than any
+  # REVOKE inside a shared server.
   keycloak-db:
     profiles: ["dev"]
     image: postgres:18-alpine@sha256:4da1a4828be12604092fa55311276f08f9224a74a62dcb4708bd7439e2a03911
@@ -34,106 +144,6 @@ services:
       - POSTGRES_PASSWORD=${KEYCLOAK_DB_PASSWORD}
     ports:
       - "8081:5432"
-    networks:
-      - backend
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost || exit 1",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-
-  allocation-key-db:
-    profiles: ["dev"]
-    image: postgres:18-alpine@sha256:4da1a4828be12604092fa55311276f08f9224a74a62dcb4708bd7439e2a03911
-    restart: unless-stopped
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_DB=allocation_key_local
-      - POSTGRES_PASSWORD=${ALLOCATION_KEY_DB_PASSWORD}
-    volumes:
-      - ./allocation-key-generation/scripts/sql/schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    ports:
-      - "8093:5432"
-    networks:
-      - backend
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost || exit 1",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-
-  simulation-key-db:
-    profiles: ["dev"]
-    image: postgres:18-alpine@sha256:4da1a4828be12604092fa55311276f08f9224a74a62dcb4708bd7439e2a03911
-    restart: unless-stopped
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_DB=simulation_key_local
-      - POSTGRES_PASSWORD=${SIMULATION_KEY_DB_PASSWORD}
-    volumes:
-      - ./simulation-key/scripts/sql/schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    ports:
-      - "8096:5432"
-    networks:
-      - backend
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost || exit 1",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-
-  news-board-db:
-    profiles: ["dev"]
-    image: postgres:18-alpine@sha256:4da1a4828be12604092fa55311276f08f9224a74a62dcb4708bd7439e2a03911
-    restart: unless-stopped
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_DB=news_board_local
-      - POSTGRES_PASSWORD=${NEWS_BOARD_DB_PASSWORD}
-    volumes:
-      - ./news-board/scripts/sql/schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    ports:
-      - "8097:5432"
-    networks:
-      - backend
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost || exit 1",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-
-  billing-db:
-    profiles: ["dev"]
-    image: postgres:18-alpine@sha256:4da1a4828be12604092fa55311276f08f9224a74a62dcb4708bd7439e2a03911
-    restart: unless-stopped
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_DB=billing_local
-      - POSTGRES_PASSWORD=${BILLING_DB_PASSWORD}
-    volumes:
-      - ./billing/scripts/sql/schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    ports:
-      - "8098:5432"
     networks:
       - backend
     healthcheck:
@@ -230,10 +240,22 @@ services:
       mc mb --ignore-existing local/$${TEMPLATES_BUCKET:-optimce-templates};
       mc mb --ignore-existing local/$${OUTPUT_BUCKET:-optimce-documents};
       mc cp --recursive /templates/billing local/$${TEMPLATES_BUCKET:-optimce-templates}/;
+      mc cp --recursive /templates-admin/administrative-document local/$${TEMPLATES_BUCKET:-optimce-templates}/;
       exit 0;
       "
     volumes:
+      # One mount per owning service: each ships the bundles for its own
+      # documents, and the directory name inside becomes the key prefix
+      # (`mc cp` of a directory preserves it), which is what
+      # document_template.file_ref / *_TEMPLATE_URI point at.
+      #
+      # NOTE: this is `cp`, not `sync` — and document-generation caches bundles
+      # on disk keyed by URI with no invalidation. Re-uploading to an existing
+      # versioned prefix therefore has no effect until you
+      # `up --force-recreate document-generation`. Bump the version directory
+      # instead.
       - ./billing/document-templates:/templates:ro
+      - ./administrative-document/document-templates:/templates-admin:ro
     networks:
       - backend
 
@@ -279,7 +301,13 @@ services:
       dockerfile: Dockerfile.dev
     volumes:
       - ./krakend/config:/app/docs/openapi
-    command: sh -c "npm run swagger && sleep 3 && mv /app/docs/openapi/swagger.yaml /app/docs/openapi/root.yaml"
+    # No `sleep` between the two: swagger-autogen writes with fs.writeFileSync, so the
+    # file is closed before the promise settles, and the `mv` runs in THIS container
+    # through the same mount — there is no flush to wait on. A sleep here also could
+    # never have helped krakend-config see the result, since it precedes the rename.
+    # It used to be `&& sleep 3 &&`, and those three seconds were the window the init
+    # profile's abort cascade used to SIGKILL this container in. See docker-stack.sh.
+    command: sh -c "npm run swagger && mv /app/docs/openapi/swagger.yaml /app/docs/openapi/root.yaml"
 
   generation-doc-gen:
     profiles: ["init", "dev"]
@@ -337,6 +365,21 @@ services:
       - ALLOW_ORIGIN=*
     entrypoint: ["python", "scripts/export_openapi.py", "/output/billing.json"]
 
+  administrative-document-doc-gen:
+    profiles: ["init", "dev"]
+    build:
+      context: administrative-document
+      dockerfile: Dockerfile
+    volumes:
+      - ./krakend/config:/output
+    environment:
+      - ENV=local
+      - CRM_DATABASE_URL=postgresql+asyncpg://placeholder:placeholder@placeholder:5432/placeholder
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://placeholder:placeholder@placeholder:5432/placeholder
+      - ALLOW_ORIGIN=*
+    entrypoint:
+      ["python", "scripts/export_openapi.py", "/output/administrative-document.json"]
+
   krakend-config:
     profiles: ["init", "dev"]
     build:
@@ -357,6 +400,8 @@ services:
       news-doc-gen:
         condition: service_completed_successfully
       billing-doc-gen:
+        condition: service_completed_successfully
+      administrative-document-doc-gen:
         condition: service_completed_successfully
 
   krakend:
@@ -379,6 +424,8 @@ services:
       optimce-news-board:
         condition: service_started
       billing:
+        condition: service_started
+      administrative-document:
         condition: service_started
       keycloak:
         condition: service_started
@@ -431,10 +478,23 @@ services:
       - REMOTE_LOGGING=${REMOTE_LOGGING}
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-      - DB_TYPE=postgres
-      - DB_HOST=crm-database
+      # The only service that configures its database with discrete variables
+      # rather than a DSN: config/{development,production}.cjs map these five and
+      # there is no url: option on the TypeORM DataSource. (Which of the two
+      # applies is decided by `npm run dev`, which forces NODE_ENV=development
+      # over the value set above — they read the same five variables, so it makes
+      # no difference here beyond the unused fallbacks.)
+      #
+      # DB_TYPE used to be on this list and was read by nothing:
+      # database.connector.ts hardcodes type: "postgres".
+      #
+      # crm_svc OWNS crm_db, its `public` schema and every table in it — the
+      # sidecar applies the schema under SET ROLE crm_svc. That is what keeps the
+      # hand-applied database_script/*.sql migrations working, and what makes
+      # ALTER DEFAULT PRIVILEGES in 30-crm-grants.sql attach to the right role.
+      - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_USERNAME=postgres
+      - DB_USERNAME=crm_svc
       - DB_PASSWORD=${CRM_DB_PASSWORD}
       - DB_NAME=crm_db
       - REGULATORS_CONFIG_PATH=/app/reference/regulators.json
@@ -445,8 +505,8 @@ services:
     networks:
       - backend
     depends_on:
-      crm-database:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       minio-init:
         condition: service_completed_successfully
       jaeger:
@@ -460,8 +520,8 @@ services:
     restart: unless-stopped
     environment:
       - ENV=local
-      - CRM_DATABASE_URL=postgresql+asyncpg://postgres:${CRM_DB_PASSWORD}@crm-database:5432/crm_db
-      - LOCAL_DATABASE_URL=postgresql+asyncpg://postgres:${ALLOCATION_KEY_DB_PASSWORD}@allocation-key-db:5432/allocation_key_local
+      - CRM_DATABASE_URL=postgresql+asyncpg://allocation_key_svc:${ALLOCATION_KEY_DB_PASSWORD}@postgres:5432/crm_db
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://allocation_key_svc:${ALLOCATION_KEY_DB_PASSWORD}@postgres:5432/allocation_key_local
       - NATS_URL=nats://nats:4222
       - ALLOW_ORIGIN=*
       - CRM_DB_POOL_SIZE=5
@@ -478,10 +538,8 @@ services:
     networks:
       - backend
     depends_on:
-      allocation-key-db:
-        condition: service_healthy
-      crm-database:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       nats:
         condition: service_healthy
       minio-init:
@@ -504,8 +562,8 @@ services:
     cpus: "2.0"
     environment:
       - ENV=local
-      - CRM_DATABASE_URL=postgresql+asyncpg://postgres:${CRM_DB_PASSWORD}@crm-database:5432/crm_db
-      - LOCAL_DATABASE_URL=postgresql+asyncpg://postgres:${ALLOCATION_KEY_DB_PASSWORD}@allocation-key-db:5432/allocation_key_local
+      - CRM_DATABASE_URL=postgresql+asyncpg://allocation_key_svc:${ALLOCATION_KEY_DB_PASSWORD}@postgres:5432/crm_db
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://allocation_key_svc:${ALLOCATION_KEY_DB_PASSWORD}@postgres:5432/allocation_key_local
       - NATS_URL=nats://nats:4222
       - ALLOW_ORIGIN=*
       - CRM_DB_POOL_SIZE=5
@@ -523,10 +581,8 @@ services:
     networks:
       - backend
     depends_on:
-      allocation-key-db:
-        condition: service_healthy
-      crm-database:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       nats:
         condition: service_healthy
       minio-init:
@@ -540,8 +596,8 @@ services:
     restart: unless-stopped
     environment:
       - ENV=local
-      - CRM_DATABASE_URL=postgresql+asyncpg://postgres:${CRM_DB_PASSWORD}@crm-database:5432/crm_db
-      - LOCAL_DATABASE_URL=postgresql+asyncpg://postgres:${SIMULATION_KEY_DB_PASSWORD}@simulation-key-db:5432/simulation_key_local
+      - CRM_DATABASE_URL=postgresql+asyncpg://simulation_key_svc:${SIMULATION_KEY_DB_PASSWORD}@postgres:5432/crm_db
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://simulation_key_svc:${SIMULATION_KEY_DB_PASSWORD}@postgres:5432/simulation_key_local
       - NATS_URL=nats://nats:4222
       - ALLOW_ORIGIN=*
       - CRM_DB_POOL_SIZE=5
@@ -558,10 +614,8 @@ services:
     networks:
       - backend
     depends_on:
-      simulation-key-db:
-        condition: service_healthy
-      crm-database:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       nats:
         condition: service_healthy
       minio-init:
@@ -584,8 +638,8 @@ services:
     cpus: "2.0"
     environment:
       - ENV=local
-      - CRM_DATABASE_URL=postgresql+asyncpg://postgres:${CRM_DB_PASSWORD}@crm-database:5432/crm_db
-      - LOCAL_DATABASE_URL=postgresql+asyncpg://postgres:${SIMULATION_KEY_DB_PASSWORD}@simulation-key-db:5432/simulation_key_local
+      - CRM_DATABASE_URL=postgresql+asyncpg://simulation_key_svc:${SIMULATION_KEY_DB_PASSWORD}@postgres:5432/crm_db
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://simulation_key_svc:${SIMULATION_KEY_DB_PASSWORD}@postgres:5432/simulation_key_local
       - NATS_URL=nats://nats:4222
       - ALLOW_ORIGIN=*
       - CRM_DB_POOL_SIZE=5
@@ -603,10 +657,8 @@ services:
     networks:
       - backend
     depends_on:
-      simulation-key-db:
-        condition: service_healthy
-      crm-database:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       nats:
         condition: service_healthy
       minio-init:
@@ -620,8 +672,8 @@ services:
     restart: unless-stopped
     environment:
       - ENV=local
-      - CRM_DATABASE_URL=postgresql+asyncpg://postgres:${CRM_DB_PASSWORD}@crm-database:5432/crm_db
-      - LOCAL_DATABASE_URL=postgresql+asyncpg://postgres:${NEWS_BOARD_DB_PASSWORD}@news-board-db:5432/news_board_local
+      - CRM_DATABASE_URL=postgresql+asyncpg://news_board_svc:${NEWS_BOARD_DB_PASSWORD}@postgres:5432/crm_db
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://news_board_svc:${NEWS_BOARD_DB_PASSWORD}@postgres:5432/news_board_local
       - ALLOW_ORIGIN=*
       - CRM_DB_POOL_SIZE=5
       - CRM_DB_MAX_OVERFLOW=5
@@ -632,10 +684,8 @@ services:
     networks:
       - backend
     depends_on:
-      news-board-db:
-        condition: service_healthy
-      crm-database:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
     healthcheck:
       test:
         - "CMD-SHELL"
@@ -653,8 +703,8 @@ services:
     restart: unless-stopped
     environment:
       - ENV=local
-      - CRM_DATABASE_URL=postgresql+asyncpg://postgres:${CRM_DB_PASSWORD}@crm-database:5432/crm_db
-      - LOCAL_DATABASE_URL=postgresql+asyncpg://postgres:${BILLING_DB_PASSWORD}@billing-db:5432/billing_local
+      - CRM_DATABASE_URL=postgresql+asyncpg://billing_svc:${BILLING_DB_PASSWORD}@postgres:5432/crm_db
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://billing_svc:${BILLING_DB_PASSWORD}@postgres:5432/billing_local
       - NATS_URL=nats://nats:4222
       - ALLOW_ORIGIN=*
       - CRM_DB_POOL_SIZE=5
@@ -676,10 +726,8 @@ services:
     networks:
       - backend
     depends_on:
-      billing-db:
-        condition: service_healthy
-      crm-database:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       nats:
         condition: service_healthy
       minio-init:
@@ -693,6 +741,109 @@ services:
       retries: 5
       start_period: 45s
 
+  administrative-document:
+    profiles: ["dev"]
+    build:
+      context: administrative-document
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - ENV=local
+      - CRM_DATABASE_URL=postgresql+asyncpg://administrative_document_svc:${ADMINISTRATIVE_DOCUMENT_DB_PASSWORD}@postgres:5432/crm_db
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://administrative_document_svc:${ADMINISTRATIVE_DOCUMENT_DB_PASSWORD}@postgres:5432/administrative_document_local
+      - NATS_URL=nats://nats:4222
+      - ALLOW_ORIGIN=*
+      - CRM_DB_POOL_SIZE=5
+      - CRM_DB_MAX_OVERFLOW=5
+      - LOCAL_DB_POOL_SIZE=5
+      - LOCAL_DB_MAX_OVERFLOW=5
+      - STORAGE_ENDPOINT=${STORAGE_API_URL}
+      - STORAGE_BUCKET=${STORAGE_BUCKET:-crm-files}
+      # Stored document versions share the platform document bucket, under this
+      # service's own key prefix. Needs read+write on it.
+      - OUTPUT_BUCKET=${OUTPUT_BUCKET:-optimce-documents}
+      - STORAGE_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - STORAGE_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - STORAGE_REGION=us-east-1
+      # Rendering bundles. This service never opens them — document_template
+      # .file_ref points into this bucket and document-generation fetches them —
+      # but the name is declared so a misconfigured stack fails at boot.
+      - TEMPLATES_BUCKET=${TEMPLATES_BUCKET:-optimce-templates}
+      - DOCGEN_REQUEST_SUBJECT=docgen.request
+      - DOCGEN_RESULT_SUBJECT=docgen.result.administrative_document
+      # Maps community.regulator -> the region whose deadline rules apply.
+      - REGULATORS_CONFIG_PATH=/app/reference/regulators.json
+    volumes:
+      - ./reference:/app/reference:ro
+    ports:
+      - "8006:8000"
+    networks:
+      - backend
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+      nats:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health/readiness', timeout=3).status==200 else 1)\""
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+  administrative-document-worker:
+    profiles: ["dev"]
+    build:
+      context: administrative-document
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    environment:
+      - ENV=local
+      - CRM_DATABASE_URL=postgresql+asyncpg://administrative_document_svc:${ADMINISTRATIVE_DOCUMENT_DB_PASSWORD}@postgres:5432/crm_db
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://administrative_document_svc:${ADMINISTRATIVE_DOCUMENT_DB_PASSWORD}@postgres:5432/administrative_document_local
+      - NATS_URL=nats://nats:4222
+      - ALLOW_ORIGIN=*
+      - CRM_DB_POOL_SIZE=5
+      - CRM_DB_MAX_OVERFLOW=5
+      - LOCAL_DB_POOL_SIZE=5
+      - LOCAL_DB_MAX_OVERFLOW=5
+      - STORAGE_ENDPOINT=${STORAGE_API_URL}
+      - STORAGE_BUCKET=${STORAGE_BUCKET:-crm-files}
+      - OUTPUT_BUCKET=${OUTPUT_BUCKET:-optimce-documents}
+      - TEMPLATES_BUCKET=${TEMPLATES_BUCKET:-optimce-templates}
+      - STORAGE_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - STORAGE_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - STORAGE_REGION=us-east-1
+      # Must match the API's: the API publishes the work message, the worker
+      # turns it into a docgen request and listens for the reply here.
+      - DOCGEN_REQUEST_SUBJECT=docgen.request
+      - DOCGEN_RESULT_SUBJECT=docgen.result.administrative_document
+      - REGULATORS_CONFIG_PATH=/app/reference/regulators.json
+    volumes:
+      - ./reference:/app/reference:ro
+    networks:
+      - backend
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+      nats:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      # Start the API first: it declares the ADMIN_DOCUMENT work-queue stream
+      # this worker consumes from, so without it the first subscribe fails.
+      administrative-document:
+        condition: service_started
+      # And docgen, so its DOCGEN_RESULTS stream usually exists before we bind to
+      # it. Streams are created asynchronously after it starts, so the background
+      # subscribe-retry in worker/dispatcher.py is the real guarantee.
+      document-generation:
+        condition: service_started
+
   billing-worker:
     profiles: ["dev"]
     build:
@@ -701,8 +852,8 @@ services:
     restart: unless-stopped
     environment:
       - ENV=local
-      - CRM_DATABASE_URL=postgresql+asyncpg://postgres:${CRM_DB_PASSWORD}@crm-database:5432/crm_db
-      - LOCAL_DATABASE_URL=postgresql+asyncpg://postgres:${BILLING_DB_PASSWORD}@billing-db:5432/billing_local
+      - CRM_DATABASE_URL=postgresql+asyncpg://billing_svc:${BILLING_DB_PASSWORD}@postgres:5432/crm_db
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://billing_svc:${BILLING_DB_PASSWORD}@postgres:5432/billing_local
       - NATS_URL=nats://nats:4222
       - ALLOW_ORIGIN=*
       - CRM_DB_POOL_SIZE=5
@@ -722,10 +873,8 @@ services:
     networks:
       - backend
     depends_on:
-      billing-db:
-        condition: service_healthy
-      crm-database:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       nats:
         condition: service_healthy
       minio-init:
@@ -758,6 +907,66 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+
+  # The only thing in the platform that sends email. Worker-only, like
+  # document-generation: no port, no gateway route, no OpenAPI export — sending
+  # is purely outbound, so there is nothing to listen on. It owns no database
+  # either; the outbound_message queue lives in the CRM schema so that a
+  # producer's enqueue rides on its own transaction.
+  notification-dispatch:
+    profiles: ["dev"]
+    build:
+      context: notification-dispatch
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    environment:
+      - ENV=local
+      - CRM_DATABASE_URL=postgresql+asyncpg://notification_dispatch_svc:${NOTIFICATION_DISPATCH_DB_PASSWORD}@postgres:5432/crm_db
+      - CRM_DB_POOL_SIZE=5
+      - CRM_DB_MAX_OVERFLOW=5
+      # Mailpit in dev. Set EMAIL_TRANSPORT=BREVO and BREVO_API_KEY to send for
+      # real; NOOP is refused outside local/test because it would mark every
+      # message SENT while no mail left the building.
+      - EMAIL_TRANSPORT=${EMAIL_TRANSPORT:-SMTP}
+      - EMAIL_FROM_ADDRESS=${EMAIL_FROM_ADDRESS:-no-reply@optimce.be}
+      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-OptimCE}
+      - EMAIL_REPLY_TO=${EMAIL_REPLY_TO:-}
+      - EMAIL_MESSAGE_ID_DOMAIN=${EMAIL_MESSAGE_ID_DOMAIN:-optimce.be}
+      - APP_URL=${DOMAIN}
+      - SMTP_HOST=${SMTP_HOST:-mailpit}
+      - SMTP_PORT=${SMTP_PORT:-1025}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_STARTTLS=${SMTP_STARTTLS:-false}
+      - SMTP_TLS=${SMTP_TLS:-false}
+      - BREVO_API_KEY=${BREVO_API_KEY:-}
+      - BREVO_BASE_URL=${BREVO_BASE_URL:-https://api.brevo.com}
+      - BREVO_SUPPRESSION_SYNC_INTERVAL_SECONDS=${BREVO_SUPPRESSION_SYNC_INTERVAL_SECONDS:-3600}
+      - DISPATCH_POLL_INTERVAL_SECONDS=${DISPATCH_POLL_INTERVAL_SECONDS:-15}
+      - DEFAULT_LOCALE=${EMAIL_DEFAULT_LOCALE:-fr}
+    networks:
+      - backend
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_started
+
+  # Catches every message the dev stack sends, so a local run can never reach a
+  # real mailbox. The published port is the web UI — the one legitimate
+  # exception to "workers have no ports" here, since the whole point is that a
+  # human opens it. SMTP stays on 1025, internal to the backend network.
+  mailpit:
+    profiles: ["dev"]
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    environment:
+      - MP_SMTP_AUTH_ACCEPT_ANY=true
+      - MP_SMTP_AUTH_ALLOW_INSECURE=true
+    ports:
+      - "8007:8025"
+    networks:
+      - backend
 
   keycloak-config:
     profiles: ["init", "dev"]
@@ -812,6 +1021,15 @@ services:
     build:
       context: crm-frontend
       dockerfile: Dockerfile
+    # keycloak and reverse-proxy already gate on their own config containers this way;
+    # this one did not. config.json below is gitignored, so without the gate Docker
+    # resolves the bind source before crm-frontend-config has written it and creates a
+    # DIRECTORY there instead — nginx then serves a directory at the config URL and the
+    # app boots with no runtime config. A blank page whose only symptom shows up in the
+    # browser console, nowhere near the cause.
+    depends_on:
+      crm-frontend-config:
+        condition: service_completed_successfully
     volumes:
       - ./crm-frontend-config/config.json:/usr/share/nginx/html/assets/config/config.json
     environment:

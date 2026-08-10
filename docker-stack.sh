@@ -16,6 +16,7 @@ Commands:
     start      Run init profile (build theme), then start dev profile
     stop       Stop and remove init/dev profiles
     restart    Stop then start (does not pull images by default)
+    verify     Prove the database isolation and the CRM grants (see postgres/)
     help       Show this help message
 
 Options (for start):
@@ -97,13 +98,36 @@ start_stack() {
         compose -f "$COMPOSE_FILE" --profile init --profile dev pull
     fi
 
+    # `run --rm` per one-shot, NOT `up --abort-on-container-exit`.
+    #
+    # --abort-on-container-exit tears the whole init profile down the moment the FIRST
+    # container exits. The three envsubst services finish in ~0.3s, and that starts a
+    # 10s `docker stop` clock on everything else. Every container here is PID 1 with no
+    # SIGTERM handler, and Linux ignores an unhandled SIGTERM sent to PID 1, so they all
+    # just keep running to the deadline: the Python doc-gens happen to finish inside the
+    # window, swagger-doc-gen (npx tsx over the whole crm-backend TS project) does not
+    # and takes the SIGKILL at 137. krakend-config's service_completed_successfully gate
+    # then fails and krakend.json is silently left stale.
+    #
+    # This form was the more dangerous of the two wrappers: with no --exit-code-from,
+    # compose sources the exit status from the first container to exit — keycloak-config,
+    # which exits 0 — so the failure could return success and start the dev profile
+    # against a stale gateway config.
+    #
+    # `run` has no cascade and exits with the container's own code (the same contract
+    # verify_stack below already relies on). krakend-config still pulls in the six
+    # doc-gens through its depends_on and still gates on each completing successfully,
+    # so a genuine generation failure is still loud.
     if [ "$SKIP_INIT" = false ]; then
         echo "Running init profile..."
         if [ "$BUILD_IMAGES" = true ]; then
-            compose -f "$COMPOSE_FILE" --profile init --env-file "$ENV_FILE" up --build --abort-on-container-exit --remove-orphans
-        else
-            compose -f "$COMPOSE_FILE" --profile init --env-file "$ENV_FILE" up --abort-on-container-exit --remove-orphans
+            compose -f "$COMPOSE_FILE" --profile init --env-file "$ENV_FILE" build
         fi
+
+        compose -f "$COMPOSE_FILE" --profile init --env-file "$ENV_FILE" run --rm -T keycloak-config
+        compose -f "$COMPOSE_FILE" --profile init --env-file "$ENV_FILE" run --rm -T nginx-config
+        compose -f "$COMPOSE_FILE" --profile init --env-file "$ENV_FILE" run --rm -T crm-frontend-config
+        compose -f "$COMPOSE_FILE" --profile init --env-file "$ENV_FILE" run --rm -T krakend-config
 
         compose -f "$COMPOSE_FILE" --profile init --env-file "$ENV_FILE" down --remove-orphans
     else
@@ -115,6 +139,36 @@ start_stack() {
         compose -f "$COMPOSE_FILE" --profile dev --env-file "$ENV_FILE" up -d --build --remove-orphans
     else
         compose -f "$COMPOSE_FILE" --profile dev --env-file "$ENV_FILE" up -d --remove-orphans
+    fi
+}
+
+verify_stack() {
+    # Runs both scripts inside the postgres-init image, so no psql is needed on
+    # the host and all seven role passwords come from the environment compose
+    # already assembles.
+    #
+    # MSYS_NO_PATHCONV=1 is not optional under Git Bash on Windows: it would
+    # otherwise rewrite /postgres/verify/... into a C:\ path before Docker ever
+    # sees it, and the container fails with `stat C:/Program: no such file`.
+    local status=0
+
+    echo "Proving database isolation..."
+    if ! MSYS_NO_PATHCONV=1 compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" \
+        run --rm --no-deps --entrypoint /postgres/verify/isolation.sh postgres-init; then
+        status=1
+    fi
+
+    echo
+    echo "Proving every granted CRM write lands..."
+    if ! MSYS_NO_PATHCONV=1 compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" \
+        run --rm --no-deps --entrypoint /postgres/verify/positive-writes.sh postgres-init; then
+        status=1
+    fi
+
+    if [ "$status" -ne 0 ]; then
+        echo
+        echo "Verification FAILED. See postgres/README.md."
+        exit 1
     fi
 }
 
@@ -196,6 +250,9 @@ main() {
             parse_start_options "$@"
             stop_stack
             start_stack
+            ;;
+        verify)
+            verify_stack
             ;;
         help|-h|--help)
             usage

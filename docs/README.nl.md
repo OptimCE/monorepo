@@ -35,9 +35,11 @@ als submodules:
 | `crm-frontend/` | [OptimCE/crm-frontend](https://github.com/OptimCE/crm-frontend) | Webinterface (Angular) |
 | `allocation-key-generation/` | [OptimCE/allocation-key-generation](https://github.com/OptimCE/allocation-key-generation) | Service voor het genereren van verdeelsleutels voor energiedelen (Python) |
 | `simulation-key/` | [OptimCE/allocation-key-simulation](https://github.com/OptimCE/allocation-key-simulation) | Simulatieservice voor verdeelsleutels (Python) |
+| `administrative-document/` | [OptimCE/administrative-document](https://github.com/OptimCE/administrative-document) | Service voor regelgevingsdossiers en het genereren van CWaPE-formulieren (Python) |
 | `billing/` | [OptimCE/billing](https://github.com/OptimCE/billing) | Facturatieservice (Python) |
 | `document-generation/` | [OptimCE/document-generation](https://github.com/OptimCE/document-generation) | Documentgeneratieservice (Python) |
 | `news-board/` | [OptimCE/news-board](https://github.com/OptimCE/news-board) | Communitynieuwsbord (Python) |
+| `notification-dispatch/` | [OptimCE/notification-dispatch](https://github.com/OptimCE/notification-dispatch) | Worker voor het versturen van uitgaande e-mail (Python) |
 | `keycloak/kc-groupid-mapper/` | [OptimCE/kc-groupid-mapper](https://github.com/OptimCE/kc-groupid-mapper) | Keycloak-mapper die groepsinformatie aan tokens toevoegt |
 | `keycloak/optimce-keycloak-theme/` | [OptimCE/optimce-keycloak-theme](https://github.com/OptimCE/optimce-keycloak-theme) | Keycloak-loginthema (Keycloakify) |
 | `krakend/swagger2krakend/` | [OptimCE/swagger2krakend](https://github.com/OptimCE/swagger2krakend) | OpenAPI → KrakenD-configuratiegenerator (Python) |
@@ -50,8 +52,10 @@ deze repository:
 | `krakend/` | Configuratie van de API-gateway (gegenereerde `krakend.json` en OpenAPI-bronnen) |
 | `keycloak/` | Keycloak-image, realmconfiguratie en providers |
 | `nginx/` | Reverse-proxyconfiguratie en certificaten |
+| `postgres/` | Provisioning en verificatie van de gebundelde database-instantie — rollen, databases, rechten ([README](../postgres/README.md)) |
 | `crm-frontend-config/` | Gegenereerde runtimeconfiguratie van de frontend |
 | `reference/` | Gedeelde referentiegegevens (bv. `regulators.json`) |
+| `docs/runbooks/` | Operationele procedures, bv. [de consolidatie van de productiedatabases](runbooks/database-consolidation.md) |
 
 ## Architectuur
 
@@ -62,13 +66,19 @@ De ontwikkelingsstack (`docker-compose.dev.yml`) draait de volgende services:
 - **crm-backend**: CRM-backend-API
 - **allocation-key-generation** (+ worker): berekening van verdeelsleutels
 - **simulation-key** (+ worker): simulaties van energiedelen
+- **administrative-document** (+ worker): regelgevingsdossiers, CWaPE-termijnen
+  en het genereren van formulieren
 - **billing** (+ worker): facturatie
 - **document-generation**: worker voor documentgeneratie
+- **notification-dispatch**: worker voor het versturen van uitgaande e-mail
 - **optimce-news-board**: communitynieuwsbord
 
-**Databases** (PostgreSQL, één per service)
-- **crm-database**, **keycloak-db**, **allocation-key-db**,
-  **simulation-key-db**, **news-board-db**, **billing-db**
+**Databases** (PostgreSQL)
+- **postgres**: één instantie, zes logische databases — `crm_db`,
+  `allocation_key_local`, `simulation_key_local`, `news_board_local`,
+  `billing_local`, `administrative_document_local` — elk eigendom van een eigen
+  loginrol. Zie [postgres/README.md](../postgres/README.md).
+- **keycloak-db**: een aparte instantie; Keycloak beheert zijn eigen schema.
 
 **Platform**
 - **keycloak**: authenticatieserver
@@ -80,8 +90,8 @@ De ontwikkelingsstack (`docker-compose.dev.yml`) draait de volgende services:
 
 **Configuratiegeneratie** (profiel `init`, eenmalig draaiende containers)
 - **swagger-doc-gen**, **generation-doc-gen**, **simulation-doc-gen**,
-  **news-doc-gen**, **billing-doc-gen**: verzamelen de OpenAPI-specificatie van
-  elke service
+  **news-doc-gen**, **billing-doc-gen**, **administrative-document-doc-gen**:
+  verzamelen de OpenAPI-specificatie van elke service
 - **krakend-config**, **keycloak-config**, **nginx-config**,
   **crm-frontend-config**: genereren de configuratie van gateway,
   authenticatie, proxy en frontend op basis van sjablonen
@@ -123,12 +133,30 @@ KEYCLOAK_ADMIN_PASSWORD=changeme_keycloak_admin_password
 
 ### Database-initialisatie
 
-De CRM-database wordt bij de eerste start geïnitialiseerd via een SQL-script:
+Alle applicatiedatabases draaien in **één** PostgreSQL-instantie (de service
+`postgres`, hostpoort 8080), met één logische database per service, elk eigendom
+van een eigen loginrol. De sidecar `postgres-init` voorziet bij **elke** start in
+rollen, databases, schema's, seeddata en rechten — zie
+[postgres/README.md](../postgres/README.md) voor het volledige beeld, inclusief
+de least-privilege-rechtenmatrix die bepaalt wat elke service in `crm_db` mag
+doen.
 
-- **CRM-database**: `crm-backend/database_script/init.sql`
+Het bestaande schemabestand van elke service wordt ongewijzigd hergebruikt:
 
-Voor Keycloak initialiseert het bestand `keycloak/dev-config.json` een
-basisrealm.
+| Database | Toegepast schema |
+|---|---|
+| `crm_db` | `crm-backend/tests/sql/init.sql` (DDL + seeddata voor ontwikkeling) |
+| `allocation_key_local` | `allocation-key-generation/scripts/sql/schema.sql` |
+| `simulation_key_local` | `simulation-key/scripts/sql/schema.sql` |
+| `news_board_local` | `news-board/scripts/sql/schema.sql` |
+| `billing_local` | `billing/scripts/sql/schema.sql` |
+| `administrative_document_local` | `administrative-document/scripts/sql/schema.sql` + de bijbehorende seeds |
+
+`crm-backend/database_script/init.sql` is de zuivere DDL-tegenhanger voor
+productie; de ontwikkelstack past dat bestand niet toe.
+
+Keycloak houdt zijn **eigen** instantie (`keycloak-db`, poort 8081) en
+initialiseert een basisrealm uit `keycloak/dev-config.json`.
 
 ⚠️ **Belangrijk**: de databases **zijn niet persistent**. De gegevens gaan
 verloren telkens wanneer de containers herstarten. Deze configuratie is
@@ -270,7 +298,9 @@ uitgevoerd.
 | `simulation-key` | `8003` | `8000` | `tcp` | Simulatie-API |
 | `optimce-news-board` | `8004` | `8000` | `tcp` | Nieuwsbord-API |
 | `billing` | `8005` | `8000` | `tcp` | Facturatie-API |
-| `crm-database` | `8080` | `5432` | `tcp` | PostgreSQL CRM |
+| `administrative-document` | `8006` | `8000` | `tcp` | API voor administratieve documenten |
+| `mailpit` | `8007` | `8025` | `tcp` | E-mailcatcher voor ontwikkeling (webinterface) |
+| `postgres` | `8080` | `5432` | `tcp` | PostgreSQL — zes logische databases (crm_db, billing_local, …) |
 | `keycloak-db` | `8081` | `5432` | `tcp` | PostgreSQL Keycloak |
 | `keycloak` | `8082` | `8080` | `tcp` | Keycloak-authenticatie |
 | `jaeger` | `8084` | `6831` | `udp` | Jaeger-collector |
@@ -282,12 +312,8 @@ uitgevoerd.
 | `crm-frontend` | `8090` | `80` | `tcp` | Frontendinterface |
 | `minio` | `8091` | `9000` | `tcp` | MinIO-API |
 | `minio` | `8092` | `9001` | `tcp` | MinIO-console |
-| `allocation-key-db` | `8093` | `5432` | `tcp` | PostgreSQL verdeelsleutels |
 | `nats` | `8094` | `4222` | `tcp` | NATS-client |
 | `nats` | `8095` | `8222` | `tcp` | NATS-monitoring |
-| `simulation-key-db` | `8096` | `5432` | `tcp` | PostgreSQL simulatie |
-| `news-board-db` | `8097` | `5432` | `tcp` | PostgreSQL nieuwsbord |
-| `billing-db` | `8098` | `5432` | `tcp` | PostgreSQL facturatie |
 
 ## Bijdragen
 

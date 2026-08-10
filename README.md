@@ -33,9 +33,11 @@ Service code lives in the individual repositories, included here as submodules:
 | `crm-frontend/` | [OptimCE/crm-frontend](https://github.com/OptimCE/crm-frontend) | Web interface (Angular) |
 | `allocation-key-generation/` | [OptimCE/allocation-key-generation](https://github.com/OptimCE/allocation-key-generation) | Energy-sharing allocation key generation service (Python) |
 | `simulation-key/` | [OptimCE/allocation-key-simulation](https://github.com/OptimCE/allocation-key-simulation) | Allocation key simulation service (Python) |
+| `administrative-document/` | [OptimCE/administrative-document](https://github.com/OptimCE/administrative-document) | Regulatory dossier tracking and CWaPE form generation service (Python) |
 | `billing/` | [OptimCE/billing](https://github.com/OptimCE/billing) | Invoicing service (Python) |
 | `document-generation/` | [OptimCE/document-generation](https://github.com/OptimCE/document-generation) | Document generation service (Python) |
 | `news-board/` | [OptimCE/news-board](https://github.com/OptimCE/news-board) | Community news board service (Python) |
+| `notification-dispatch/` | [OptimCE/notification-dispatch](https://github.com/OptimCE/notification-dispatch) | Outbound email delivery worker (Python) |
 | `keycloak/kc-groupid-mapper/` | [OptimCE/kc-groupid-mapper](https://github.com/OptimCE/kc-groupid-mapper) | Keycloak mapper adding group information to tokens |
 | `keycloak/optimce-keycloak-theme/` | [OptimCE/optimce-keycloak-theme](https://github.com/OptimCE/optimce-keycloak-theme) | Keycloak login theme (Keycloakify) |
 | `krakend/swagger2krakend/` | [OptimCE/swagger2krakend](https://github.com/OptimCE/swagger2krakend) | OpenAPI → KrakenD configuration generator (Python) |
@@ -48,8 +50,10 @@ configuration that belongs to this repository:
 | `krakend/` | API gateway configuration (generated `krakend.json` and OpenAPI sources) |
 | `keycloak/` | Keycloak image build, realm configuration, and providers |
 | `nginx/` | Reverse proxy configuration and certificates |
+| `postgres/` | Provisioning and verification for the unified database instance — roles, databases, grants ([README](postgres/README.md)) |
 | `crm-frontend-config/` | Generated frontend runtime configuration |
 | `reference/` | Shared reference data (e.g. `regulators.json`) |
+| `docs/runbooks/` | Operational procedures, e.g. [the production database consolidation](docs/runbooks/database-consolidation.md) |
 
 ## Architecture
 
@@ -60,13 +64,19 @@ The development stack (`docker-compose.dev.yml`) runs the following services:
 - **crm-backend**: CRM backend API
 - **allocation-key-generation** (+ worker): allocation key computation
 - **simulation-key** (+ worker): energy-sharing simulations
+- **administrative-document** (+ worker): regulatory dossiers, CWaPE deadlines
+  and form generation
 - **billing** (+ worker): invoicing
 - **document-generation**: document generation worker
+- **notification-dispatch**: outbound email delivery worker
 - **optimce-news-board**: community news board
 
-**Databases** (PostgreSQL, one per service)
-- **crm-database**, **keycloak-db**, **allocation-key-db**,
-  **simulation-key-db**, **news-board-db**, **billing-db**
+**Databases** (PostgreSQL)
+- **postgres**: one instance, six logical databases — `crm_db`,
+  `allocation_key_local`, `simulation_key_local`, `news_board_local`,
+  `billing_local`, `administrative_document_local` — each owned by its own login
+  role. See [postgres/README.md](postgres/README.md).
+- **keycloak-db**: a separate instance; Keycloak manages its own schema.
 
 **Platform**
 - **keycloak**: authentication server
@@ -78,8 +88,8 @@ The development stack (`docker-compose.dev.yml`) runs the following services:
 
 **Configuration generation** (`init` profile, run-once containers)
 - **swagger-doc-gen**, **generation-doc-gen**, **simulation-doc-gen**,
-  **news-doc-gen**, **billing-doc-gen**: collect each service's OpenAPI
-  specification
+  **news-doc-gen**, **billing-doc-gen**, **administrative-document-doc-gen**:
+  collect each service's OpenAPI specification
 - **krakend-config**, **keycloak-config**, **nginx-config**,
   **crm-frontend-config**: render the gateway, auth, proxy, and frontend
   configuration from templates
@@ -121,19 +131,37 @@ KEYCLOAK_ADMIN_PASSWORD=changeme_keycloak_admin_password
 
 ### Database Initialization
 
-The CRM database is initialized via an SQL script on the first startup:
+All application databases live in **one** PostgreSQL instance (the `postgres`
+service, host port 8080), one logical database per service, each owned by its own
+login role. The `postgres-init` sidecar provisions roles, databases, schemas,
+seeds and grants on **every** start — see
+[postgres/README.md](postgres/README.md) for the full picture, including the
+least-privilege grant matrix that governs what each service may do in `crm_db`.
 
-- **CRM Database**: `crm-backend/database_script/init.sql`
+Each service's existing schema file is reused verbatim:
 
-For Keycloak, the `keycloak/dev-config.json` file is responsible for
-initializing a base realm.
+| Database | Schema applied |
+|---|---|
+| `crm_db` | `crm-backend/tests/sql/init.sql` (DDL + dev seed data) |
+| `allocation_key_local` | `allocation-key-generation/scripts/sql/schema.sql` |
+| `simulation_key_local` | `simulation-key/scripts/sql/schema.sql` |
+| `news_board_local` | `news-board/scripts/sql/schema.sql` |
+| `billing_local` | `billing/scripts/sql/schema.sql` |
+| `administrative_document_local` | `administrative-document/scripts/sql/schema.sql` + its seeds |
 
-⚠️ **Important**: The databases **are not persistent**. Data will be lost every
-time the containers are restarted. This configuration is suitable for
-development and testing.
+`crm-backend/database_script/init.sql` is the pure-DDL sibling used for
+production; it is not applied by the dev stack.
 
-If you want to modify the database schema, edit the corresponding SQL files
-before starting the services.
+Keycloak keeps its **own** instance (`keycloak-db`, port 8081) and initialises a
+base realm from `keycloak/dev-config.json`.
+
+⚠️ **Important**: The databases **are not persistent**. Data is lost whenever the
+containers are recreated. This configuration is suitable for development and
+testing.
+
+If you want to modify a schema, edit the corresponding SQL file and recreate the
+stack — a schema is applied only to an empty database, so an existing one is
+never re-written in place.
 
 ### Configuration Generation
 
@@ -177,7 +205,14 @@ Main commands:
 ./docker-stack.sh start
 ./docker-stack.sh stop
 ./docker-stack.sh restart
+./docker-stack.sh verify
 ```
+
+`verify` proves the database isolation: that no service can reach another
+service's database, and that every CRM write it *is* granted actually lands. The
+second half matters because the annexes swallow their own audit and notification
+failures — a missing grant returns HTTP 200 and silently loses the row. See
+[postgres/README.md](postgres/README.md).
 
 The flow automatically executes:
 
@@ -266,7 +301,9 @@ startup.
 | `simulation-key` | `8003` | `8000` | `tcp` | Simulation API |
 | `optimce-news-board` | `8004` | `8000` | `tcp` | News board API |
 | `billing` | `8005` | `8000` | `tcp` | Billing API |
-| `crm-database` | `8080` | `5432` | `tcp` | PostgreSQL CRM |
+| `administrative-document` | `8006` | `8000` | `tcp` | Administrative document API |
+| `mailpit` | `8007` | `8025` | `tcp` | Dev mail catcher (web UI) |
+| `postgres` | `8080` | `5432` | `tcp` | PostgreSQL — six logical databases (crm_db, billing_local, …) |
 | `keycloak-db` | `8081` | `5432` | `tcp` | PostgreSQL Keycloak |
 | `keycloak` | `8082` | `8080` | `tcp` | Keycloak Authentication |
 | `jaeger` | `8084` | `6831` | `udp` | Jaeger Collector |
@@ -278,12 +315,8 @@ startup.
 | `crm-frontend` | `8090` | `80` | `tcp` | Frontend interface |
 | `minio` | `8091` | `9000` | `tcp` | MinIO API |
 | `minio` | `8092` | `9001` | `tcp` | MinIO Console |
-| `allocation-key-db` | `8093` | `5432` | `tcp` | PostgreSQL allocation keys |
 | `nats` | `8094` | `4222` | `tcp` | NATS client |
 | `nats` | `8095` | `8222` | `tcp` | NATS monitoring |
-| `simulation-key-db` | `8096` | `5432` | `tcp` | PostgreSQL simulation |
-| `news-board-db` | `8097` | `5432` | `tcp` | PostgreSQL news board |
-| `billing-db` | `8098` | `5432` | `tcp` | PostgreSQL billing |
 
 ## Contributing
 

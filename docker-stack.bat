@@ -25,6 +25,7 @@ if errorlevel 1 exit /b 1
 if /i "%COMMAND%"=="start"   goto :parse_start
 if /i "%COMMAND%"=="restart" goto :parse_start
 if /i "%COMMAND%"=="stop"    goto :parse_stop
+if /i "%COMMAND%"=="verify"  goto :run_verify
 
 echo Unknown command: %COMMAND%
 call :usage
@@ -94,6 +95,7 @@ echo Commands:
 echo     start      Run init profile (build theme), then start dev profile
 echo     stop       Stop and remove init/dev profiles
 echo     restart    Stop then start (does not pull images by default)
+echo     verify     Prove the database isolation and the CRM grants (see postgres\)
 echo     help       Show this help message
 echo.
 echo Options (for start):
@@ -156,13 +158,32 @@ if "%PULL_IMAGES%"=="true" (
     %DOCKER_COMPOSE_CMD% -f "%COMPOSE_FILE%" --profile init --profile dev pull || exit /b 1
 )
 
+rem `run --rm` per one-shot, NOT `up --exit-code-from krakend-config`.
+rem
+rem --exit-code-from implies --abort-on-container-exit, which tears the whole init
+rem profile down the moment the FIRST container exits. The three envsubst services
+rem finish in ~0.3s, and that starts a 10s `docker stop` clock on everything else.
+rem Every container here is PID 1 with no SIGTERM handler, and Linux ignores an
+rem unhandled SIGTERM sent to PID 1, so they all just keep running to the deadline:
+rem the Python doc-gens happen to finish inside the window, swagger-doc-gen (npx tsx
+rem over the whole crm-backend TS project) does not and takes the SIGKILL at 137.
+rem krakend-config's service_completed_successfully gate then fails and krakend.json
+rem is silently left stale. Rerunning "fixed" it only because a warm cache let
+rem swagger-doc-gen fit inside the 10 seconds.
+rem
+rem `run` has no cascade and exits with the container's own code (the same contract
+rem :run_verify below already relies on). krakend-config still pulls in the six
+rem doc-gens through its depends_on and still gates on each completing successfully,
+rem so a genuine generation failure is still loud.
 if "%SKIP_INIT%"=="false" (
     echo Running init profile...
     if "%BUILD_IMAGES%"=="true" (
-        %DOCKER_COMPOSE_CMD% -f "%COMPOSE_FILE%" --profile init --env-file "%ENV_FILE%" up --build --exit-code-from krakend-config --remove-orphans || exit /b 1
-    ) else (
-        %DOCKER_COMPOSE_CMD% -f "%COMPOSE_FILE%" --profile init --env-file "%ENV_FILE%" up --exit-code-from krakend-config --remove-orphans || exit /b 1
+        %DOCKER_COMPOSE_CMD% -f "%COMPOSE_FILE%" --profile init --env-file "%ENV_FILE%" build || exit /b 1
     )
+    %DOCKER_COMPOSE_CMD% -f "%COMPOSE_FILE%" --profile init --env-file "%ENV_FILE%" run --rm -T keycloak-config || exit /b 1
+    %DOCKER_COMPOSE_CMD% -f "%COMPOSE_FILE%" --profile init --env-file "%ENV_FILE%" run --rm -T nginx-config || exit /b 1
+    %DOCKER_COMPOSE_CMD% -f "%COMPOSE_FILE%" --profile init --env-file "%ENV_FILE%" run --rm -T crm-frontend-config || exit /b 1
+    %DOCKER_COMPOSE_CMD% -f "%COMPOSE_FILE%" --profile init --env-file "%ENV_FILE%" run --rm -T krakend-config || exit /b 1
     %DOCKER_COMPOSE_CMD% -f "%COMPOSE_FILE%" --profile init --env-file "%ENV_FILE%" down --remove-orphans || exit /b 1
 ) else (
     echo Skipping init profile.
@@ -185,6 +206,32 @@ if "%BUILD_IMAGES%"=="true" (
     %DOCKER_COMPOSE_CMD% -f "%COMPOSE_FILE%" --profile dev --env-file "%ENV_FILE%" up -d --build --remove-orphans "%TARGET_SERVICE%" || exit /b 1
 ) else (
     %DOCKER_COMPOSE_CMD% -f "%COMPOSE_FILE%" --profile dev --env-file "%ENV_FILE%" up -d --remove-orphans "%TARGET_SERVICE%" || exit /b 1
+)
+exit /b 0
+
+rem ===================================================================
+rem Runs both verification scripts inside the postgres-init image, so no psql is
+rem needed on the host and all seven role passwords come from the environment
+rem compose already assembles. See postgres/README.md.
+:run_verify
+call :check_docker_service
+if errorlevel 1 exit /b 1
+
+set "VERIFY_STATUS=0"
+
+echo Proving database isolation...
+%DOCKER_COMPOSE_CMD% -f "%COMPOSE_FILE%" --env-file "%ENV_FILE%" run --rm --no-deps --entrypoint /postgres/verify/isolation.sh postgres-init
+if errorlevel 1 set "VERIFY_STATUS=1"
+
+echo.
+echo Proving every granted CRM write lands...
+%DOCKER_COMPOSE_CMD% -f "%COMPOSE_FILE%" --env-file "%ENV_FILE%" run --rm --no-deps --entrypoint /postgres/verify/positive-writes.sh postgres-init
+if errorlevel 1 set "VERIFY_STATUS=1"
+
+if not "%VERIFY_STATUS%"=="0" (
+    echo.
+    echo Verification FAILED. See postgres\README.md.
+    exit /b 1
 )
 exit /b 0
 

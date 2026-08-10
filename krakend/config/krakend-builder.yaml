@@ -21,3 +21,6 @@ services:
   billing:
     swagger: /config/billing.json
     host: billing:8000
+  administrative-document:
+    swagger: /config/administrative-document.json
+    host: administrative-document:8000

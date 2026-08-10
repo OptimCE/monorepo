@@ -1,5 +1,13 @@
+# Rendered from templates by the `init` profile — never edit or commit these.
 crm-frontend-config/config.json
-krakend/config/krakend.json
 krakend/config/root.yaml
 keycloak/realm/dev-config.json
+keycloak/dev-config.json
 nginx/conf.d/default.conf
+
+# krakend.json plus the per-service OpenAPI exports written here by the six
+# *-doc-gen one-shots. Everything authored by hand in this directory is .yaml.
+krakend/config/*.json
+
+# Per-machine agent state (session locks, worktrees, local permission lists).
+.claude/

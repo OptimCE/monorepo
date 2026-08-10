@@ -28,3 +28,9 @@
 [submodule "document-generation"]
 	path = document-generation
 	url = ../document-generation.git
+[submodule "administrative-document"]
+	path = administrative-document
+	url = ../administrative-document.git
+[submodule "notification-dispatch"]
+	path = notification-dispatch
+	url = ../notification-dispatch.git

@@ -1,0 +1,7 @@
+# The provisioning scripts and their SQL are mounted into a Linux container and
+# executed by busybox `sh` and `psql`. This repo is developed on Windows with
+# core.autocrlf=true, which would hand the container CRLF files — `provision.sh`
+# then dies on a stray \r and the whole stack refuses to start, with an error
+# that points nowhere near the cause. Pin them.
+postgres/**/*.sh   text eol=lf
+postgres/**/*.sql  text eol=lf
