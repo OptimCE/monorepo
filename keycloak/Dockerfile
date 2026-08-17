@@ -1,5 +1,5 @@
 # Build Keycloak theme
-FROM maven:3.9-eclipse-temurin-17 AS theme-builder
+FROM maven:3.9-eclipse-temurin-17@sha256:4015718012bbf1113ec6cfae2b950be328d90265ceb60f92b26c3ea7c4d14ee8 AS theme-builder
 WORKDIR /app
 
 RUN apt-get update -qq && apt-get install -y -qq nodejs npm
@@ -11,7 +11,7 @@ COPY optimce-keycloak-theme/ .
 RUN npm run build-keycloak-theme
 
 # Extract, rename and repackage theme
-FROM ubuntu:jammy AS theme-extractor
+FROM ubuntu:jammy@sha256:3b06811b2afd352be909dd088a004166d665dc76d38b13eada33522a9d915c6f AS theme-extractor
 RUN apt-get update -qq && apt-get install -y -qq unzip zip && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY --from=theme-builder /app/dist_keycloak/keycloak-theme-for-kc-all-other-versions.jar .
@@ -24,7 +24,7 @@ RUN mkdir -p /theme-fix /dist && \
     cd / && rm -rf /theme-fix /src
 
 # Build kc-groupid-mapper
-FROM maven:3.9.6-eclipse-temurin-17 AS builder
+FROM maven:3.9.6-eclipse-temurin-17@sha256:29a1658b1f3078e07c2b17f7b519b45eb47f65d9628e887eac45a8c5c8f939d4 AS builder
 WORKDIR /app
 
 COPY kc-groupid-mapper/pom.xml .
