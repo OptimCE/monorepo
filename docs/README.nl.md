@@ -6,6 +6,7 @@
 
 [![Website](https://img.shields.io/badge/Website-optimce.be-2e7d32.svg)](https://www.optimce.be/nl/)
 [![Licentie](https://img.shields.io/badge/Licentie-Apache%202.0-blue.svg)](../LICENSE)
+[![Vertaalstatus](https://hosted.weblate.org/widgets/optimce/-/svg-badge.svg)](https://hosted.weblate.org/engage/optimce/)
 [![en](https://img.shields.io/badge/lang-en-lightgrey.svg)](../README.md)
 [![fr](https://img.shields.io/badge/lang-fr-lightgrey.svg)](README.fr.md)
 [![de](https://img.shields.io/badge/lang-de-lightgrey.svg)](README.de.md)
@@ -314,6 +315,25 @@ uitgevoerd.
 | `minio` | `8092` | `9001` | `tcp` | MinIO-console |
 | `nats` | `8094` | `4222` | `tcp` | NATS-client |
 | `nats` | `8095` | `8222` | `tcp` | NATS-monitoring |
+
+## Vertalingen
+
+OptimCE is beschikbaar in het **Frans, Engels, Nederlands en Duits**. Elke
+service houdt zijn eigen berichtencatalogus bij in zijn eigen repository — de
+interfaceteksten van de frontend en de API-foutmeldingen van de backend en de
+Python-services — allemaal als geneste JSON.
+
+Deze catalogi worden vertaald op [Weblate](https://weblate.org/), een vrij
+webgebaseerd platform voor continue lokalisatie, dat OptimCE gratis host binnen
+zijn Libre-plan voor vrije software. Het project `optimce` bevat daar één
+component per repository, en Weblate commit goedgekeurde vertalingen
+rechtstreeks terug naar de repository van elke service.
+
+**[OptimCE vertalen op Weblate →](https://hosted.weblate.org/engage/optimce/)**
+
+De vertaalde versies van deze README (`docs/README.fr.md`, `docs/README.de.md`,
+`docs/README.nl.md`) worden handmatig bijgehouden en maken geen deel uit van het
+Weblate-project.
 
 ## Bijdragen
 

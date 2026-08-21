@@ -54,6 +54,25 @@ Notes:
 - Small documentation fixes are welcome as direct pull requests; for larger
   changes, opening an issue first to discuss the approach can save you time.
 
+## Translations
+
+The user-facing strings of every service are translated on
+[Weblate](https://hosted.weblate.org/engage/optimce/), which hosts OptimCE free
+of charge as a free software project. The `optimce` project carries one
+component per repository, and Weblate commits approved translations back to
+those repositories automatically.
+
+- **Translating, or fixing a wording** — do it on Weblate, not in a pull
+  request. Pull requests that only change translated values may be closed with a
+  pointer to Weblate, so that the two do not drift apart.
+- **Adding or renaming a key** — that belongs in a pull request in the service
+  repository that owns the catalog, together with the code that uses it and its
+  source string. Weblate picks the new key up on its next sync and offers it to
+  translators.
+
+The translated READMEs under `docs/` are not part of the Weblate project; they
+are kept in sync by hand.
+
 ## Commit Messages
 
 Use short, imperative commit messages, preferably following the
