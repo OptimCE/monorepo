@@ -282,6 +282,59 @@ services:
       retries: 5
       start_period: 15s
 
+  # Realtime fan-out ONLY: SSE pub/sub on `notify:v1:*` plus the single-use SSE
+  # tickets. Deliberately NOT the JetStream broker above — job dispatch must not
+  # lose messages, realtime is ALLOWED to. A separate container makes "realtime
+  # may drop" structurally true and stops anyone making it durable later.
+  #
+  # No volume, no AOF, no RDB: every key here is either a <=30s ticket or an
+  # in-flight PUBLISH, so losing everything on restart is CORRECT behaviour.
+  # `--save ""` also removes the fork-on-BGSAVE latency spike.
+  #
+  # --requirepass is NOT hygiene. Redis has no auth by default, this sits on the
+  # `backend` network alongside nine services, and the LIVE TICKET STORE lives in
+  # it: unauthenticated, anything on that network could read every in-flight
+  # ticket with its channel list and impersonate any connecting user.
+  #
+  # env_file is load-bearing: the healthcheck's `$$REDIS_PASSWORD` expands inside
+  # the container, so without it redis-cli authenticates with an empty password,
+  # never returns PONG, and crm-backend (which gates on service_healthy) never
+  # starts.
+  redis:
+    profiles: ["dev"]
+    image: redis:8-alpine@sha256:978f0e01593e65eed801f2402944efcd936d43b5027e4908a7897baf88ed6241
+    restart: unless-stopped
+    env_file:
+      - .env.dev
+    command:
+      - "redis-server"
+      - "--save"
+      - ""
+      - "--appendonly"
+      - "no"
+      - "--maxmemory"
+      - "128mb"
+      - "--maxmemory-policy"
+      - "allkeys-lru"
+      - "--requirepass"
+      - "${REDIS_PASSWORD}"
+    # Loopback-only: published solely so the redis-cli verification recipes in
+    # docs/runbooks work from the host. Nothing outside the host needs it.
+    ports:
+      - "127.0.0.1:8093:6379"
+    networks:
+      - backend
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "redis-cli --no-auth-warning -a \"$$REDIS_PASSWORD\" ping | grep -q PONG",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   jaeger:
     profiles: ["dev"]
     image: jaegertracing/jaeger:latest@sha256:bf7f805da4c2bc8d58a6c81ee650fdb6b8e4287698f95fbe231c09c865bc397f
@@ -293,6 +346,78 @@ services:
       - COLLECTOR_OTLP_ENABLED=true
     networks:
       - backend
+
+  # The federal BeSt Address register (FPS BOSA), self-contained.
+  #
+  # Part of the dev profile, so ./docker-stack.sh start brings it up with
+  # everything else. Budget for it: the image is 1.6 GB and the container settles
+  # around 1.7 GB resident. On Docker Desktop that usually means raising the WSL2
+  # ceiling first (%UserProfile%\.wslconfig -> memory=12GB, then wsl --shutdown).
+  #
+  # There is deliberately NO depends_on from crm-backend, even though both are
+  # now in the same profile. The healthcheck below waits for the address table to
+  # be paged in, which takes ~45 s on a cold start — making the backend wait for
+  # that would add three quarters of a minute to every single stack start, to
+  # gate a feature that degrades to "no suggestions" on its own. crm-backend
+  # discovers this service at runtime: with BEST_ADDRESS_URL blank, or the
+  # container down, the picker is unbound and every form behaves as it did
+  # before the feature existed.
+  #
+  # Data is baked into the image, so a `docker pull` IS the address-data refresh
+  # — which is exactly why the reference below is pinned by digest. An unpinned
+  # tag would mean the addresses under you change silently on someone else's
+  # pull, and this dataset is what the map and the picker are BUILT on.
+  # Renovate raises the refresh as an ordinary reviewable dependency PR instead:
+  # .github/renovate.json extends docker:pinDigests, and carries the versioning
+  # rule that teaches it to read this publisher's YYYY-WW tags.
+  #
+  # Licence: the address data is CC-BY 4.0. Attribution is required — Service
+  # public de Wallonie, Paradigm.Brussels, Digitaal Vlaanderen.
+  best-address:
+    profiles: ["dev"]
+    # 2026-35 = the ISO week-35 2026 extract, published 2026-08-31. `latest`
+    # pointed at this same digest when it was pinned, verified against the
+    # registry with `docker buildx imagetools inspect`.
+    image: bosa/opendata-best-webapi:2026-35@sha256:371165f3e370e3d8476202bacea4c74bcbc8a02f944671b968826bcd64b6cf18
+    restart: unless-stopped
+    environment:
+      - SERVER_PORT=8080
+      # Do NOT set PGOPTIONS here. The image's CMD is
+      #   pg_ctl start -D $$PGDATA $$PGOPTIONS && java -jar best-webapi.jar
+      # with the variable UNQUOTED, so the value is word-split into raw pg_ctl
+      # arguments — not server settings. `-c shared_buffers=512MB` makes pg_ctl
+      # exit with "too many command-line arguments" and, with restart:
+      # unless-stopped and nothing depending on this service, the container then
+      # crash-loops in silence. Server tuning would have to go through `-o`, and
+      # the unquoted expansion means `-o` can carry exactly one space-free
+      # argument. The image's own defaults are fine: measured at ~1.65 GB
+      # resident and sub-100 ms queries once warm.
+    # Loopback-only, like crm-backend: this is reference data with no auth of
+    # its own, and nothing outside the host has any business reaching it.
+    ports:
+      - "127.0.0.1:8096:8080"
+    networks:
+      - backend
+    healthcheck:
+      # NOT just /health. The first /addresses read after a cold start took 56
+      # SECONDS (Postgres paging the address table in) against 0.09 s once warm,
+      # and KrakenD's global timeout is 3000 ms — so a box that answers /health
+      # but has never touched the address table is not ready in any useful
+      # sense, and the first person to type an address would get a 504.
+      #
+      # curl, not wget: this image has no wget, and a probe that can never pass
+      # leaves the container `starting` forever and then permanently unhealthy,
+      # while the service underneath works perfectly. --max-time stays under the
+      # `timeout` below so curl gives up before Docker kills it.
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS --max-time 85 -o /dev/null 'http://localhost:8080/belgianAddress/v2/addresses?postCode=1000&page=1'",
+        ]
+      interval: 30s
+      timeout: 90s
+      retries: 5
+      start_period: 120s
 
   swagger-doc-gen:
     profiles: ["init", "dev"]
@@ -441,6 +566,8 @@ services:
       - ./nginx/certs:/etc/nginx/certs
     networks:
       - reverse-proxy
+      # For `location = /realtime/stream` only — see the `sse` network comment.
+      - sse
     depends_on:
       nginx-config:
         condition: service_completed_successfully
@@ -498,12 +625,45 @@ services:
       - DB_PASSWORD=${CRM_DB_PASSWORD}
       - DB_NAME=crm_db
       - REGULATORS_CONFIG_PATH=/app/reference/regulators.json
+      # Realtime (SSE). db 1 on purpose: db 0 stays reserved for the currently
+      # dormant cache_service, which is a DIFFERENT switch — see
+      # src/container/factory/realtime.factory.ts. With REALTIME_ENABLED=false
+      # nothing is bound, no connection is opened, and clients stay on polling.
+      - REALTIME_ENABLED=${REALTIME_ENABLED}
+      - REALTIME_REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
+      - REALTIME_TICKET_TTL_SECONDS=${REALTIME_TICKET_TTL_SECONDS}
+      - REALTIME_MAX_CONNECTION_SECONDS=${REALTIME_MAX_CONNECTION_SECONDS}
+      - REALTIME_MAX_CONNECTIONS_PER_USER=${REALTIME_MAX_CONNECTIONS_PER_USER}
+      # Address geocoding + the BeSt Address picker. These keys were read by the
+      # code from the day geocoding shipped but never surfaced here, so the
+      # service ran on its compiled-in defaults and GEOCODING_MODE=REMOTE could
+      # only be set by editing the file.
+      #
+      # BEST_ADDRESS_URL blank == the picker is OFF. It defaults to the
+      # `best-address` service, which now starts with the rest of the stack, so
+      # the feature works out of the box. The `-` (not `:-`) form fills in only
+      # when the variable is UNSET, which is what lets a deliberately blank value
+      # in .env.dev still turn the feature off.
+      - GEOCODING_MODE=${GEOCODING_MODE:-LOCAL}
+      - GEOCODING_TIMEOUT_MS=${GEOCODING_TIMEOUT_MS:-2000}
+      - GEOCODING_BATCH_MAX=${GEOCODING_BATCH_MAX:-1000}
+      - BEST_ADDRESS_URL=${BEST_ADDRESS_URL-http://best-address:8080/belgianAddress/v2}
+      - BEST_ADDRESS_TIMEOUT_MS=${BEST_ADDRESS_TIMEOUT_MS:-1500}
     volumes:
       - ./reference:/app/reference:ro
+    # Loopback-only. crm-backend performs NO authentication of its own — it
+    # trusts x-user-id blindly (shared/middlewares/context.ts) — so a port
+    # reachable off-host is an unauthenticated, cross-tenant read/write API.
+    # Reach it through the reverse proxy (8087) instead.
     ports:
-      - "8089:80"
+      - "127.0.0.1:8089:80"
+    # `sse` exists solely so reverse-proxy can reach this service for
+    # `location = /realtime/stream`. Deliberately NOT the `reverse-proxy`
+    # network: that also holds crm-frontend, and a compromised static frontend
+    # must not be able to call this API with forged x-user-id headers.
     networks:
       - backend
+      - sse
     depends_on:
       postgres-init:
         condition: service_completed_successfully
@@ -511,6 +671,8 @@ services:
         condition: service_completed_successfully
       jaeger:
         condition: service_started
+      redis:
+        condition: service_healthy
 
   allocation-key-generation:
     profiles: ["dev"]
@@ -533,6 +695,10 @@ services:
       - STORAGE_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
       - STORAGE_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
       - STORAGE_REGION=us-east-1
+      # Realtime (SSE hints) — fire-and-forget. An empty/unreachable URL is a
+      # silent no-op: core/realtime/bus.py never raises and never blocks a write.
+      - REALTIME_ENABLED=${REALTIME_ENABLED}
+      - REALTIME_REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
     ports:
       - "8002:8000"
     networks:
@@ -578,6 +744,10 @@ services:
       - OMP_NUM_THREADS=1
       - OPENBLAS_NUM_THREADS=1
       - MKL_NUM_THREADS=1
+      # Realtime (SSE hints) — fire-and-forget. An empty/unreachable URL is a
+      # silent no-op: core/realtime/bus.py never raises and never blocks a write.
+      - REALTIME_ENABLED=${REALTIME_ENABLED}
+      - REALTIME_REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
     networks:
       - backend
     depends_on:
@@ -609,6 +779,10 @@ services:
       - STORAGE_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
       - STORAGE_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
       - STORAGE_REGION=us-east-1
+      # Realtime (SSE hints) — fire-and-forget. An empty/unreachable URL is a
+      # silent no-op: core/realtime/bus.py never raises and never blocks a write.
+      - REALTIME_ENABLED=${REALTIME_ENABLED}
+      - REALTIME_REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
     ports:
       - "8003:8000"
     networks:
@@ -654,6 +828,10 @@ services:
       - OMP_NUM_THREADS=1
       - OPENBLAS_NUM_THREADS=1
       - MKL_NUM_THREADS=1
+      # Realtime (SSE hints) — fire-and-forget. An empty/unreachable URL is a
+      # silent no-op: core/realtime/bus.py never raises and never blocks a write.
+      - REALTIME_ENABLED=${REALTIME_ENABLED}
+      - REALTIME_REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
     networks:
       - backend
     depends_on:
@@ -679,6 +857,10 @@ services:
       - CRM_DB_MAX_OVERFLOW=5
       - LOCAL_DB_POOL_SIZE=5
       - LOCAL_DB_MAX_OVERFLOW=5
+      # Realtime (SSE hints) — fire-and-forget. An empty/unreachable URL is a
+      # silent no-op: core/realtime/bus.py never raises and never blocks a write.
+      - REALTIME_ENABLED=${REALTIME_ENABLED}
+      - REALTIME_REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
     ports:
       - "8004:8000"
     networks:
@@ -719,6 +901,10 @@ services:
       - STORAGE_REGION=us-east-1
       - REGULATORS_CONFIG_PATH=/app/reference/regulators.json
       - DEFAULT_LOCALE=fr-BE
+      # Realtime (SSE hints) — fire-and-forget. An empty/unreachable URL is a
+      # silent no-op: core/realtime/bus.py never raises and never blocks a write.
+      - REALTIME_ENABLED=${REALTIME_ENABLED}
+      - REALTIME_REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
     volumes:
       - ./reference:/app/reference:ro
     ports:
@@ -773,6 +959,10 @@ services:
       - DOCGEN_RESULT_SUBJECT=docgen.result.administrative_document
       # Maps community.regulator -> the region whose deadline rules apply.
       - REGULATORS_CONFIG_PATH=/app/reference/regulators.json
+      # Realtime (SSE hints) — fire-and-forget. An empty/unreachable URL is a
+      # silent no-op: core/realtime/bus.py never raises and never blocks a write.
+      - REALTIME_ENABLED=${REALTIME_ENABLED}
+      - REALTIME_REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
     volumes:
       - ./reference:/app/reference:ro
     ports:
@@ -823,6 +1013,10 @@ services:
       - DOCGEN_REQUEST_SUBJECT=docgen.request
       - DOCGEN_RESULT_SUBJECT=docgen.result.administrative_document
       - REGULATORS_CONFIG_PATH=/app/reference/regulators.json
+      # Realtime (SSE hints) — fire-and-forget. An empty/unreachable URL is a
+      # silent no-op: core/realtime/bus.py never raises and never blocks a write.
+      - REALTIME_ENABLED=${REALTIME_ENABLED}
+      - REALTIME_REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
     volumes:
       - ./reference:/app/reference:ro
     networks:
@@ -868,6 +1062,10 @@ services:
       - STORAGE_REGION=us-east-1
       - REGULATORS_CONFIG_PATH=/app/reference/regulators.json
       - DEFAULT_LOCALE=fr-BE
+      # Realtime (SSE hints) — fire-and-forget. An empty/unreachable URL is a
+      # silent no-op: core/realtime/bus.py never raises and never blocks a write.
+      - REALTIME_ENABLED=${REALTIME_ENABLED}
+      - REALTIME_REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
     volumes:
       - ./reference:/app/reference:ro
     networks:
@@ -988,10 +1186,18 @@ services:
       - KRAKEND_UPSTREAM=krakend:8080
       - KEYCLOAK_UPSTREAM=keycloak:8080
       - MINIO_UPSTREAM=minio:9000
+      # Reachable only over the dedicated `sse` network, and only for
+      # `location = ${WEB_REALTIME_PATH}`. Everything else still goes via krakend.
+      - CRM_BACKEND_UPSTREAM=crm-backend:80
       - CRM_FRONTEND_PROTOCOL=http
       - KRAKEND_PROTOCOL=http
       - KEYCLOAK_PROTOCOL=http
       - MINIO_PROTOCOL=http
+      - CRM_BACKEND_PROTOCOL=http
+      # WEB_REALTIME_PATH comes from .env.dev via env_file above. It is the SINGLE
+      # source of truth for the stream path: the same value renders both this
+      # nginx location and crm-frontend's config.json `realtimeUrl`, so the two
+      # cannot drift into a silent permanent fallback.
     volumes:
       - ./nginx/conf-template.d:/config
       - ./nginx/conf.d:/output
@@ -1046,3 +1252,8 @@ volumes:
 networks:
   backend:
   reverse-proxy:
+  # reverse-proxy <-> crm-backend ONLY, for `location = /realtime/stream` (the one
+  # path that bypasses the API gateway). Kept separate from `reverse-proxy`
+  # because that network also holds crm-frontend, which must NOT be able to
+  # resolve crm-backend: crm-backend authenticates nothing and trusts x-user-id.
+  sse:

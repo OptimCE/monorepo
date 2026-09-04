@@ -1,0 +1,16 @@
+# Build context is `keycloak/` (see docker-compose.dev.yml keycloak.build.context).
+# Keep the context lean: these are regenerated inside the image by `npm install`
+# and `npm run build-keycloak-theme`, or are editor/build artifacts never needed
+# for the build. Excluding them speeds up the build and avoids confusing cache noise.
+
+# Keycloakify theme submodule
+optimce-keycloak-theme/node_modules
+optimce-keycloak-theme/dist
+optimce-keycloak-theme/dist_keycloak
+optimce-keycloak-theme/storybook-static
+optimce-keycloak-theme/.storybook
+optimce-keycloak-theme/.idea
+optimce-keycloak-theme/.git
+
+# kc-groupid-mapper (Maven build output is produced inside the image)
+kc-groupid-mapper/target

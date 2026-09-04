@@ -1,3 +1,11 @@
 {
-  "extends": ["config:recommended", "group:allNonMajor", "docker:pinDigests"]
+  "extends": ["config:recommended", "group:allNonMajor", "docker:pinDigests"],
+  "packageRules": [
+    {
+      "description": "bosa/opendata-best-webapi is the BeSt Address register: the image IS the dataset, tagged YYYY-WW for the ISO week of the address extract (2026-35, 2026-36, ...). Renovate's default docker versioning reads 2026-35 as major 2026 with compatibility suffix 35, and would then only ever look for another -35 tag, so the weekly address-data refresh would silently never be offered. The character class is [0-9] rather than a backslash-d escape so the rule needs no JSON escaping and cannot be broken by a stray backslash.",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["bosa/opendata-best-webapi"],
+      "versioning": "regex:^(?<major>[0-9]{4})-(?<minor>[0-9]{1,2})$"
+    }
+  ]
 }
