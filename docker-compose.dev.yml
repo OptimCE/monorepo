@@ -199,7 +199,7 @@ services:
 
   minio:
     profiles: ["dev"]
-    image: pgsty/minio:latest
+    image: pgsty/minio:latest@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372
     command: server /data --console-address ":9001"
     restart: unless-stopped
     environment:
@@ -222,7 +222,7 @@ services:
 
   minio-init:
     profiles: ["dev"]
-    image: pgsty/mc:latest
+    image: pgsty/mc:latest@sha256:cfc83108c3abb371f8fb84d99c1fdc88f8c237e022409b0081fb7c0a3be634dd
     depends_on:
       minio:
         condition: service_healthy
@@ -261,7 +261,7 @@ services:
 
   nats:
     profiles: ["dev"]
-    image: nats:2.10-alpine
+    image: nats:2.10-alpine@sha256:b83efabe3e7def1e0a4a31ec6e078999bb17c80363f881df35edc70fcb6bb927
     restart: unless-stopped
     command: ["-js", "-m", "8222", "-sd", "/data"]
     ports:
@@ -1156,7 +1156,7 @@ services:
   # human opens it. SMTP stays on 1025, internal to the backend network.
   mailpit:
     profiles: ["dev"]
-    image: axllent/mailpit:latest
+    image: axllent/mailpit:latest@sha256:74d609a42ec279aa63c6b4622a6fa9b5408d1ad5b1d76a1c4be40a265ce0863d
     restart: unless-stopped
     environment:
       - MP_SMTP_AUTH_ACCEPT_ANY=true
