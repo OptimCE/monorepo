@@ -337,7 +337,7 @@ services:
 
   jaeger:
     profiles: ["dev"]
-    image: jaegertracing/jaeger:latest@sha256:bf7f805da4c2bc8d58a6c81ee650fdb6b8e4287698f95fbe231c09c865bc397f
+    image: jaegertracing/jaeger:latest@sha256:3d0ac795ff98aa04d1be04311d2dac6c25b4bfc8322dc02e53bc5b170c5018c3
     restart: unless-stopped
     ports:
       - "8084:6831/udp"
