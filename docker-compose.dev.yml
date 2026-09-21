@@ -17,7 +17,7 @@ services:
   # See postgres/README.md.
   postgres:
     profiles: ["dev"]
-    image: postgres:18-alpine@sha256:4da1a4828be12604092fa55311276f08f9224a74a62dcb4708bd7439e2a03911
+    image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
     restart: unless-stopped
     # max_connections=300. The configured pools now all point at ONE instance:
     #     9 Python processes x (CRM 5+5 + LOCAL 5+5) = 180
@@ -85,7 +85,7 @@ services:
   # annexes swallow it), so a half-provisioned instance would be invisible.
   postgres-init:
     profiles: ["dev"]
-    image: postgres:18-alpine@sha256:4da1a4828be12604092fa55311276f08f9224a74a62dcb4708bd7439e2a03911
+    image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
     depends_on:
       postgres:
         condition: service_healthy
@@ -136,7 +136,7 @@ services:
   # REVOKE inside a shared server.
   keycloak-db:
     profiles: ["dev"]
-    image: postgres:18-alpine@sha256:4da1a4828be12604092fa55311276f08f9224a74a62dcb4708bd7439e2a03911
+    image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
     restart: unless-stopped
     environment:
       - POSTGRES_USER=postgres
