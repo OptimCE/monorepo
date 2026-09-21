@@ -557,7 +557,7 @@ services:
 
   reverse-proxy:
     profiles: ["dev"]
-    image: nginx:latest@sha256:7150b3a39203cb5bee612ff4a9d18774f8c7caf6399d6e8985e97e28eb751c18
+    image: nginx:latest@sha256:abe47724e466aeab9a345d8e46a221c2fa8953c7848bb4a3bd9976a7199f8cf2
     ports:
       - "8087:80"
       - "8088:443"
