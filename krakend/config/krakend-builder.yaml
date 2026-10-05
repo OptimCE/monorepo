@@ -24,3 +24,37 @@ services:
   administrative-document:
     swagger: /config/administrative-document.json
     host: administrative-document:8000
+
+  # ---- live-data: ONE service, TWO entries ----------------------------------
+  #
+  # The JWT validator is gated PER SERVICE ENTRY, never per endpoint, so a
+  # service with one public route among authenticated ones cannot be expressed
+  # as a single entry. Hence two keys pointing at the same host, backed by two
+  # DISJOINT swagger files that `live-data-doc-gen` produces in one pass.
+  #
+  # THE KEYS ARE THE NAMESPACE. `cli.py:94-96` derives the prefix from the key
+  # itself - `"" if key == "root" else f"/{key}"` - so these must stay literally
+  # `live` and `live-public`. A key of `live-data` would mount the service at
+  # `/live-data/*`, and the frozen protocol says `/live-public/enroll`.
+  #
+  # No `prefix:` on either (D-2). The two subtrees are then disjoint by
+  # construction, which makes the `(path, method)` collision that panics gin -
+  # and takes all 191 other endpoints down with it, with nothing in
+  # `docker compose ps` to show for it - structurally impossible between them.
+  live:
+    swagger: /config/live.json
+    host: live-data:8000
+
+  live-public:
+    swagger: /config/live-public.json
+    host: live-data:8000
+    # THE PLATFORM'S FIRST UNAUTHENTICATED SERVICE ENTRY. Every one of the 191
+    # pre-existing endpoints carries an auth/validator; these do not.
+    #
+    # What this does NOT do is strip the `x-user-*` headers. `input_headers` is
+    # global in the generator with no per-service override, so a client-supplied
+    # `x-user-id` still reaches the backend - the gateway genuinely cannot fix
+    # that, because removing the header would strip it from all 191 others.
+    # nginx's `= /api/live-public/enroll` location is what blanks them, and
+    # live-data's tests/test_public_surface.py is the second lock.
+    auth: false

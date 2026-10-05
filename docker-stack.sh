@@ -17,6 +17,7 @@ Commands:
     stop       Stop and remove init/dev profiles
     restart    Stop then start (does not pull images by default)
     verify     Prove the database isolation and the CRM grants (see postgres/)
+    survey-ean Report every stored EAN that is not 18 digits (read-only)
     help       Show this help message
 
 Options (for start):
@@ -172,6 +173,17 @@ verify_stack() {
     fi
 }
 
+survey_ean() {
+    # Read-only: every statement in the script is a SELECT. MSYS_NO_PATHCONV=1
+    # for the same reason verify_stack needs it — Git Bash would otherwise
+    # rewrite /postgres/... into a C:\ path before Docker sees it.
+    #
+    # Deliberately NOT part of `verify`: that command is a pass/fail proof of
+    # isolation and grants, and a single legacy EAN row must not turn it red.
+    MSYS_NO_PATHCONV=1 compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" \
+        run --rm --no-deps --entrypoint /postgres/verify/ean-survey.sh postgres-init
+}
+
 stop_stack() {
     if [ -n "$TARGET_SERVICE" ]; then
         compose -f "$COMPOSE_FILE" --profile dev --env-file "$ENV_FILE" stop "$TARGET_SERVICE"
@@ -250,6 +262,9 @@ main() {
             parse_start_options "$@"
             stop_stack
             start_stack
+            ;;
+        survey-ean)
+            survey_ean
             ;;
         verify)
             verify_stack

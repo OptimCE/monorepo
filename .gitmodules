@@ -34,3 +34,6 @@
 [submodule "notification-dispatch"]
 	path = notification-dispatch
 	url = ../notification-dispatch.git
+[submodule "live-data"]
+	path = live-data
+	url = ../live-data.git

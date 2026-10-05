@@ -55,9 +55,11 @@ Infrastrukturkonfiguration dieses Repositories:
 | `keycloak/` | Keycloak-Image, Realm-Konfiguration und Provider |
 | `nginx/` | Reverse-Proxy-Konfiguration und Zertifikate |
 | `postgres/` | Provisionierung und Prüfung der vereinheitlichten Datenbankinstanz — Rollen, Datenbanken, Rechte ([README](../postgres/README.md)) |
+| `mosquitto/` | Konfiguration des MQTT-Brokers für Live Data (`mosquitto.conf`) |
 | `crm-frontend-config/` | Generierte Laufzeitkonfiguration des Frontends |
 | `reference/` | Gemeinsame Referenzdaten (z. B. `regulators.json`) |
-| `docs/runbooks/` | Betriebsabläufe, z. B. [die Konsolidierung der Produktionsdatenbanken](runbooks/database-consolidation.md) |
+| `scripts/` | End-to-End-Prüfungen gegen den laufenden Entwicklungs-Stack, z. B. `verify-live-ingest.sh` für Live Data |
+| `docs/runbooks/` | Betriebsabläufe, z. B. [die Konsolidierung der Produktionsdatenbanken](runbooks/database-consolidation.md) und [Live Data](runbooks/live-data.md) |
 
 ## Architektur
 
@@ -71,15 +73,17 @@ Der Entwicklungs-Stack (`docker-compose.dev.yml`) führt folgende Dienste aus:
 - **administrative-document** (+ Worker): regulatorische Dossiers, CWaPE-Fristen
   und Formularerzeugung
 - **billing** (+ Worker): Rechnungsstellung
+- **live-data** (+ Worker, + Scheduler): Telemetrie intelligenter Zähler über
+  MQTT — Geräteregistrierung, Erfassung, stündliche und tägliche Aggregate
 - **document-generation**: Worker für die Dokumentenerzeugung
 - **notification-dispatch**: Worker für den Versand ausgehender E-Mails
 - **optimce-news-board**: Community-Nachrichtenboard
 
 **Datenbanken** (PostgreSQL)
-- **postgres**: eine Instanz, sechs logische Datenbanken — `crm_db`,
+- **postgres**: eine Instanz, sieben logische Datenbanken — `crm_db`,
   `allocation_key_local`, `simulation_key_local`, `news_board_local`,
-  `billing_local`, `administrative_document_local` — jede im Besitz einer eigenen
-  Login-Rolle. Siehe [postgres/README.md](../postgres/README.md).
+  `billing_local`, `administrative_document_local`, `live_data_local` — jede im
+  Besitz einer eigenen Login-Rolle. Siehe [postgres/README.md](../postgres/README.md).
 - **keycloak-db**: eine eigene Instanz; Keycloak verwaltet sein eigenes Schema.
 
 **Plattform**
@@ -88,12 +92,16 @@ Der Entwicklungs-Stack (`docker-compose.dev.yml`) führt folgende Dienste aus:
 - **reverse-proxy**: Nginx-Reverse-Proxy, zentraler Einstiegspunkt der Anwendung
 - **minio**: S3-kompatibler Objektspeicher
 - **nats**: Messaging zwischen den Diensten und ihren Workern
+- **mosquitto** (+ mosquitto-init, mosquitto-roles): MQTT-Broker für die
+  Live-Data-Telemetrie, mit dem Dynamic-Security-Plugin; die beiden einmalig
+  laufenden Container legen vor seinem Start die Sicherheitsdatei und danach
+  seine Rollen an
 - **jaeger**: verteiltes Tracing (OpenTelemetry)
 
 **Konfigurationsgenerierung** (Profil `init`, einmalig laufende Container)
 - **swagger-doc-gen**, **generation-doc-gen**, **simulation-doc-gen**,
-  **news-doc-gen**, **billing-doc-gen**, **administrative-document-doc-gen**:
-  sammeln die OpenAPI-Spezifikation der einzelnen Dienste
+  **news-doc-gen**, **billing-doc-gen**, **administrative-document-doc-gen**,
+  **live-data-doc-gen**: sammeln die OpenAPI-Spezifikation der einzelnen Dienste
 - **krakend-config**, **keycloak-config**, **nginx-config**,
   **crm-frontend-config**: erzeugen die Konfiguration von Gateway,
   Authentifizierung, Proxy und Frontend aus Vorlagen
@@ -153,9 +161,16 @@ Die vorhandene Schemadatei jedes Dienstes wird unverändert wiederverwendet:
 | `news_board_local` | `news-board/scripts/sql/schema.sql` |
 | `billing_local` | `billing/scripts/sql/schema.sql` |
 | `administrative_document_local` | `administrative-document/scripts/sql/schema.sql` + zugehörige Seeds |
+| `live_data_local` | `live-data/scripts/sql/schema.sql` |
 
 `crm-backend/database_script/init.sql` ist das reine DDL-Gegenstück für die
 Produktion; der Entwicklungs-Stack wendet es nicht an.
+
+Live Data ist für Test Community in den Seed-Daten ausgeschaltet: Solange es
+nicht eingeschaltet ist, bleibt die Live-Data-Seite verborgen und ihre API
+antwortet mit 403. Schalten Sie es als ADMIN auf der Seite Zusatzdienste ein,
+oder führen Sie `./scripts/verify-live-ingest.sh` aus, das Test Community
+abonniert und abonniert lässt.
 
 Keycloak behält seine **eigene** Instanz (`keycloak-db`, Port 8081) und
 initialisiert aus `keycloak/dev-config.json` einen Basis-Realm.
@@ -173,6 +188,10 @@ Einige Konfigurationen werden automatisch über die Dienste des Profils `init`
 generiert (siehe [Architektur](#architektur)), zum Beispiel:
 
 - `swagger-doc-gen`: erzeugt `./krakend/config/swagger.yaml`
+- `live-data-doc-gen`: erzeugt `./krakend/config/live.json` und
+  `./krakend/config/live-public.json` — zwei Spezifikationen aus einem Dienst,
+  weil das Gateway die JWT-Prüfung pro Diensteintrag aktiviert und die
+  öffentliche Registrierungsroute einen Eintrag ohne sie braucht
 - `krakend-config`: erzeugt `./krakend/config/krakend.json`
 - `crm-frontend-config`: erzeugt `./crm-frontend-config/config.json`
 
@@ -297,13 +316,15 @@ ausgeführt.
 
 | Dienst | Host-Port | Container-Port | Protokoll | Verwendung |
 |---|---:|---:|---|---|
+| `mosquitto` | `127.0.0.1:1883` | `1883` | `tcp` | MQTT-Broker (Live Data), unverschlüsselt — nur Loopback |
 | `allocation-key-generation` | `8002` | `8000` | `tcp` | API für Verteilungsschlüssel |
 | `simulation-key` | `8003` | `8000` | `tcp` | Simulations-API |
 | `optimce-news-board` | `8004` | `8000` | `tcp` | News-Board-API |
 | `billing` | `8005` | `8000` | `tcp` | Rechnungs-API |
 | `administrative-document` | `8006` | `8000` | `tcp` | API für Verwaltungsdokumente |
 | `mailpit` | `8007` | `8025` | `tcp` | E-Mail-Catcher für die Entwicklung (Weboberfläche) |
-| `postgres` | `8080` | `5432` | `tcp` | PostgreSQL — sechs logische Datenbanken (crm_db, billing_local, …) |
+| `live-data` | `8008` | `8000` | `tcp` | Live-Data-API |
+| `postgres` | `8080` | `5432` | `tcp` | PostgreSQL — sieben logische Datenbanken (crm_db, billing_local, …) |
 | `keycloak-db` | `8081` | `5432` | `tcp` | PostgreSQL Keycloak |
 | `keycloak` | `8082` | `8080` | `tcp` | Keycloak-Authentifizierung |
 | `jaeger` | `8084` | `6831` | `udp` | Jaeger-Collector |
@@ -317,6 +338,14 @@ ausgeführt.
 | `minio` | `8092` | `9001` | `tcp` | MinIO-Konsole |
 | `nats` | `8094` | `4222` | `tcp` | NATS-Client |
 | `nats` | `8095` | `8222` | `tcp` | NATS-Monitoring |
+
+`mosquitto` ist auf dem Host **nur über Loopback** veröffentlicht
+(`127.0.0.1:1883`): Der Entwicklungs-Listener ist unverschlüsselt, und ein
+einfaches `1883:1883` würde auf allen Schnittstellen lauschen und den Broker in
+Ihr lokales Netz stellen. Er ist für Werkzeuge gedacht, die auf dem Host laufen,
+etwa den Konnektor-Simulator; in Produktion verwenden Geräte Port 8883 mit TLS,
+den der Entwicklungs-Broker nicht hat. `live-data-worker` und
+`live-data-scheduler` veröffentlichen keinen Port.
 
 ## Übersetzungen
 

@@ -48,7 +48,8 @@ GRANT USAGE ON SCHEMA public TO
     news_board_svc,
     billing_svc,
     administrative_document_svc,
-    notification_dispatch_svc;
+    notification_dispatch_svc,
+    live_data_svc;
 
 -- Not retroactive is the whole reason this runs on EVERY start rather than once:
 -- it covers tables that already existed when a role was added, and tables a
@@ -59,7 +60,8 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO
     news_board_svc,
     billing_svc,
     administrative_document_svc,
-    notification_dispatch_svc;
+    notification_dispatch_svc,
+    live_data_svc;
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO
     allocation_key_svc,
@@ -67,7 +69,8 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO
     news_board_svc,
     billing_svc,
     administrative_document_svc,
-    notification_dispatch_svc;
+    notification_dispatch_svc,
+    live_data_svc;
 
 -- ---------------------------------------------------------------------------
 -- Writes — narrow, one block per verified call site.
@@ -84,13 +87,15 @@ GRANT INSERT ON audit_log TO
     simulation_key_svc,
     news_board_svc,
     billing_svc,
-    administrative_document_svc;
+    administrative_document_svc,
+    live_data_svc;
 GRANT USAGE ON SEQUENCE audit_log_id_seq TO
     allocation_key_svc,
     simulation_key_svc,
     news_board_svc,
     billing_svc,
-    administrative_document_svc;
+    administrative_document_svc,
+    live_data_svc;
 
 -- notification + outbound_message — the three services with a notification
 -- port. simulation-key and allocation-key-generation have no core/notifications

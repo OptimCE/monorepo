@@ -102,6 +102,7 @@ services:
       - BILLING_DB_PASSWORD=${BILLING_DB_PASSWORD}
       - ADMINISTRATIVE_DOCUMENT_DB_PASSWORD=${ADMINISTRATIVE_DOCUMENT_DB_PASSWORD}
       - NOTIFICATION_DISPATCH_DB_PASSWORD=${NOTIFICATION_DISPATCH_DB_PASSWORD}
+      - LIVE_DATA_DB_PASSWORD=${LIVE_DATA_DB_PASSWORD}
     entrypoint: ["/bin/sh", "/postgres/provision/provision.sh"]
     volumes:
       - ./postgres:/postgres:ro
@@ -121,6 +122,12 @@ services:
       - ./news-board/scripts/sql/schema.sql:/schemas/news_board_local.sql:ro
       - ./billing/scripts/sql/schema.sql:/schemas/billing_local.sql:ro
       - ./administrative-document/scripts/sql/schema.sql:/schemas/administrative_document_local.sql:ro
+      # If this path is missing, Docker CREATES AN EMPTY DIRECTORY here and
+      # provision.sh logs "schema skipped" and exits 0 - leaving a
+      # health-green service over a database with no tables. live-data's
+      # /health/readiness reads schema_version rather than SELECT 1 so that
+      # this fails loudly instead.
+      - ./live-data/scripts/sql/schema.sql:/schemas/live_data_local.sql:ro
       # Whole directory, applied in filename order AFTER the schema and on every
       # run: these are region reference data (deadline rules + the template
       # catalogue), idempotent by construction, and 0003 updates rows 0002
@@ -505,6 +512,36 @@ services:
     entrypoint:
       ["python", "scripts/export_openapi.py", "/output/administrative-document.json"]
 
+  # TWO OpenAPI files out of ONE app, because KrakenD gates its JWT validator
+  # per SERVICE ENTRY and never per endpoint - so the public enrol route needs
+  # its own `services:` key with `auth: false`, and that needs its own swagger.
+  #
+  # `--split` refuses to write EITHER file unless the public operation set
+  # equals the literal declared in api/live_public/routes.py, and it unlinks
+  # both targets before writing: ./krakend/config is a gitignored bind mount
+  # that is never cleaned, so a half-finished run would otherwise leave a stale
+  # live-public.json for krakend-config to merge while printing "Success!".
+  live-data-doc-gen:
+    profiles: ["init", "dev"]
+    build:
+      context: live-data
+      dockerfile: Dockerfile
+    volumes:
+      - ./krakend/config:/output
+    environment:
+      - ENV=local
+      - CRM_DATABASE_URL=postgresql+asyncpg://placeholder:placeholder@placeholder:5432/placeholder
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://placeholder:placeholder@placeholder:5432/placeholder
+      - ALLOW_ORIGIN=*
+    entrypoint:
+      [
+        "python",
+        "scripts/export_openapi.py",
+        "--split",
+        "/output/live.json",
+        "/output/live-public.json",
+      ]
+
   krakend-config:
     profiles: ["init", "dev"]
     build:
@@ -527,6 +564,8 @@ services:
       billing-doc-gen:
         condition: service_completed_successfully
       administrative-document-doc-gen:
+        condition: service_completed_successfully
+      live-data-doc-gen:
         condition: service_completed_successfully
 
   krakend:
@@ -551,6 +590,8 @@ services:
       billing:
         condition: service_started
       administrative-document:
+        condition: service_started
+      live-data:
         condition: service_started
       keycloak:
         condition: service_started
@@ -647,8 +688,18 @@ services:
       - GEOCODING_MODE=${GEOCODING_MODE:-LOCAL}
       - GEOCODING_TIMEOUT_MS=${GEOCODING_TIMEOUT_MS:-2000}
       - GEOCODING_BATCH_MAX=${GEOCODING_BATCH_MAX:-1000}
+      - GEOCODING_BACKFILL_OPERATORS=${GEOCODING_BACKFILL_OPERATORS:-}
       - BEST_ADDRESS_URL=${BEST_ADDRESS_URL-http://best-address:8080/belgianAddress/v2}
       - BEST_ADDRESS_TIMEOUT_MS=${BEST_ADDRESS_TIMEOUT_MS:-1500}
+      # Annex catalogue. config/annexes-services.json is baked into the image and
+      # shared with production, so an annex whose service is not deployed
+      # everywhere ships "defaultEnabled": false and a deployment opts in here.
+      # DISABLE wins over ENABLE. A name the image's catalogue does not contain
+      # refuses the boot; under `tsx watch` only the log says so (operation
+      # annexes_services:catalog_overrides). The set served is logged once at
+      # boot as annexes_services:catalog_loaded. Values: see .env.dev.
+      - ANNEX_CATALOG_ENABLE=${ANNEX_CATALOG_ENABLE:-}
+      - ANNEX_CATALOG_DISABLE=${ANNEX_CATALOG_DISABLE:-}
     volumes:
       - ./reference:/app/reference:ro
     # Loopback-only. crm-backend performs NO authentication of its own — it
@@ -1154,6 +1205,316 @@ services:
   # real mailbox. The published port is the web UI — the one legitimate
   # exception to "workers have no ports" here, since the whole point is that a
   # human opens it. SMTP stays on 1025, internal to the backend network.
+  # ===========================================================================
+  # LIVE DATA - MQTT telemetry
+  # ===========================================================================
+
+  # The dynamic-security file, created BEFORE the broker starts.
+  #
+  # THE ORDERING IS THE WHOLE POINT. On Mosquitto 2.1.x a missing
+  # dynamic-security.json is NOT a startup error: the broker generates its own,
+  # with a `democlient`, a `super-admin` role, an `unauthenticated` group and a
+  # `.pw` file holding both passwords in PLAINTEXT - and then looks perfectly
+  # healthy, because the only thing that fails is enrolment.
+  #
+  # `dynsec init` takes the password as an OPTIONAL POSITIONAL argument.
+  # MOSQUITTO_DYNSEC_PASSWORD as an environment variable is IGNORED by the tool;
+  # with it set and no positional, the command fails with "Empty password" and
+  # writes nothing. And it EXITS 0 on failure - a second run prints "Unable to
+  # open ... (File exists)" and still returns 0 - so no script can distinguish
+  # "initialised" from "already there" from "permission denied" by exit code.
+  # Safe to re-run on every `up`; never trustworthy as a gate.
+  mosquitto-init:
+    profiles: ["dev"]
+    image: eclipse-mosquitto:2.1.2-alpine@sha256:6f8d8a947c506f8a2290ec65cd4bd2bc7cb4d43fb5f6271f861cb013e2ef9797
+    user: "1883:1883"
+    volumes:
+      - mosquitto_data:/mosquitto/data
+    environment:
+      - MOSQUITTO_DYNSEC_USER=${MOSQUITTO_DYNSEC_USER}
+      - MOSQUITTO_DYNSEC_PASSWORD=${MOSQUITTO_DYNSEC_PASSWORD}
+    # EVERY LINE AT THE SAME INDENTATION. A `>` folded scalar turns a newline
+    # into a space only between lines at EQUAL indentation; a more-indented line
+    # keeps its newline, which splits one shell command into two and produces
+    # errors ("optimce-admin: not found") that point nowhere near the cause.
+    entrypoint: >
+      /bin/sh -c "
+      if [ ! -f /mosquitto/data/dynamic-security.json ]; then
+      mosquitto_ctrl dynsec init /mosquitto/data/dynamic-security.json $${MOSQUITTO_DYNSEC_USER} $${MOSQUITTO_DYNSEC_PASSWORD};
+      fi;
+      if [ ! -f /mosquitto/data/dynamic-security.json ]; then
+      echo 'FATAL: dynamic-security.json was not created - the broker would start anyway and generate a democlient, a super-admin role and a plaintext .pw file';
+      exit 1;
+      fi;
+      echo 'dynsec config present';
+      exit 0;
+      "
+    networks:
+      - backend
+
+  mosquitto:
+    profiles: ["dev"]
+    # 2.1.2 by digest, and the LINE is load-bearing, not the pin hygiene:
+    # `%u` substitution in dynamic-security ACLs arrived in 2.1.0 and does not
+    # exist in 2.0.x, where a `%u` ACL is a literal string and a device can
+    # publish NOWHERE - silently. Note the tag: `eclipse-mosquitto:2.1.2` does
+    # not exist, the 2.1 line is published only `-alpine`.
+    image: eclipse-mosquitto:2.1.2-alpine@sha256:6f8d8a947c506f8a2290ec65cd4bd2bc7cb4d43fb5f6271f861cb013e2ef9797
+    restart: unless-stopped
+    volumes:
+      - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      # A NAMED volume, not a bind mount. The image runs as uid 1883; a bind
+      # mount is created root-owned, and Mosquitto logs an error and CARRIES ON
+      # - so sessions silently do not survive a restart. It also holds
+      # dynamic-security.json, which the plugin rewrites on every mutating
+      # command.
+      - mosquitto_data:/mosquitto/data
+    # LOOPBACK ONLY, and the form is the whole point.
+    #
+    # This port was deliberately unpublished: 1883 is plaintext, and a bare
+    # `"1883:1883"` binds 0.0.0.0 and puts an authenticated-but-plaintext broker
+    # on the developer's LAN. That reasoning stands and is why the absolute form
+    # must never appear here. `127.0.0.1:1883:1883` binds the host loopback and
+    # nothing else, which satisfies it - and it is the exact escape hatch
+    # `live-data/scripts/simulate_device.py:22-24` already prescribes for the
+    # case where a host-side run is genuinely wanted.
+    #
+    # It is wanted: ../live-data-simulator runs one process per simulated
+    # connector, from a terminal, on the host. Without this line it hangs at
+    # CONNECT with an error that names nothing.
+    #
+    # Production adds 8883 with TLS terminated in the broker itself; dev has no
+    # certificate and no 8883 listener at all (mosquitto/config/mosquitto.conf).
+    ports:
+      - "127.0.0.1:1883:1883"
+    networks:
+      - backend
+    depends_on:
+      mosquitto-init:
+        condition: service_completed_successfully
+    # NO HEALTHCHECK, deliberately. The obvious one (`mosquitto_pub` as the
+    # dynsec admin) needs credentials, and if they expand empty the probe hits
+    # `allow_anonymous false`, the container is permanently unhealthy, and
+    # anything gated on it never starts. Nothing here gates on this container's
+    # health for that reason - see live-data's depends_on below.
+
+  # The three dynsec roles, created once against a RUNNING broker.
+  #
+  # "Two roles created once" (plan 7.2) is THREE:
+  #   device  publishClientSend on its own two topics. No subscribe at all.
+  #   ingest  subscribePattern AND publishClientReceive on ce/#. BOTH. With only
+  #           the first, the SUBSCRIBE is granted, the SUBACK is normal, nothing
+  #           is logged, and not one message is ever delivered.
+  #   reaper  publishClientSend on ce/#, held by the API alone. Revocation has
+  #           to clear the retained `status` message, and Phase 0 tried that as
+  #           all three identities the original design defined - including the
+  #           dynsec bootstrap admin, whose default role grants publish on
+  #           $CONTROL and nothing else - and every one was Denied PUBLISH.
+  #
+  # Allowed to fail (`|| true` on each createRole): the commands are not
+  # idempotent - a second run answers "Role already exists" - and this container
+  # runs on every `up`. The final getRole is the real assertion.
+  mosquitto-roles:
+    profiles: ["dev"]
+    image: eclipse-mosquitto:2.1.2-alpine@sha256:6f8d8a947c506f8a2290ec65cd4bd2bc7cb4d43fb5f6271f861cb013e2ef9797
+    environment:
+      - MOSQUITTO_DYNSEC_USER=${MOSQUITTO_DYNSEC_USER}
+      - MOSQUITTO_DYNSEC_PASSWORD=${MOSQUITTO_DYNSEC_PASSWORD}
+      - MQTT_INGEST_USERNAME=${MQTT_INGEST_USERNAME}
+      - MQTT_INGEST_PASSWORD=${MQTT_INGEST_PASSWORD}
+    # EVERY LINE AT THE SAME INDENTATION - see mosquitto-init above for why a
+    # more-indented continuation line silently splits a shell command in two.
+    entrypoint: >
+      /bin/sh -c "
+      CTRL=\"mosquitto_ctrl -h mosquitto -p 1883 -u $${MOSQUITTO_DYNSEC_USER} -P $${MOSQUITTO_DYNSEC_PASSWORD} dynsec\";
+      i=0;
+      until mosquitto_sub -h mosquitto -p 1883 -u $${MOSQUITTO_DYNSEC_USER} -P $${MOSQUITTO_DYNSEC_PASSWORD} -t '$$SYS/broker/version' -C 1 -W 2 >/dev/null 2>&1 || [ $$i -ge 30 ]; do i=$$((i+1)); sleep 1; done;
+      $$CTRL createRole device || true;
+      $$CTRL addRoleACL device publishClientSend 'ce/+/%u/telemetry' allow || true;
+      $$CTRL addRoleACL device publishClientSend 'ce/+/%u/status' allow || true;
+      $$CTRL createRole ingest || true;
+      $$CTRL addRoleACL ingest subscribePattern 'ce/#' allow || true;
+      $$CTRL addRoleACL ingest publishClientReceive 'ce/#' allow || true;
+      $$CTRL createRole reaper || true;
+      $$CTRL addRoleACL reaper publishClientSend 'ce/#' allow || true;
+      $$CTRL addClientRole $${MOSQUITTO_DYNSEC_USER} reaper || true;
+      $$CTRL createClient $${MQTT_INGEST_USERNAME} -p $${MQTT_INGEST_PASSWORD} -c live-data-ingest || $$CTRL setClientPassword $${MQTT_INGEST_USERNAME} $${MQTT_INGEST_PASSWORD};
+      $$CTRL addClientRole $${MQTT_INGEST_USERNAME} ingest || true;
+      if ! $$CTRL getRole ingest | grep -q publishClientReceive; then
+      echo 'FATAL: the ingest role lacks publishClientReceive. With only subscribePattern the worker SUBSCRIBE is granted, the SUBACK is normal, nothing is logged, and not one message is ever delivered.';
+      exit 1;
+      fi;
+      echo 'dynsec roles ok';
+      exit 0;
+      "
+    networks:
+      - backend
+    depends_on:
+      mosquitto:
+        condition: service_started
+
+  live-data:
+    profiles: ["dev"]
+    build:
+      context: live-data
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - ENV=local
+      - CRM_DATABASE_URL=postgresql+asyncpg://live_data_svc:${LIVE_DATA_DB_PASSWORD}@postgres:5432/crm_db
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://live_data_svc:${LIVE_DATA_DB_PASSWORD}@postgres:5432/live_data_local
+      - ALLOW_ORIGIN=*
+      - CRM_DB_POOL_SIZE=5
+      - CRM_DB_MAX_OVERFLOW=5
+      - LOCAL_DB_POOL_SIZE=5
+      - LOCAL_DB_MAX_OVERFLOW=5
+      # The address the API DIALS. Never handed to a device.
+      - MQTT_HOST=mosquitto
+      - MQTT_PORT=1883
+      - MQTT_TLS=false
+      - MQTT_ADMIN_USERNAME=${MOSQUITTO_DYNSEC_USER}
+      - MQTT_ADMIN_PASSWORD=${MOSQUITTO_DYNSEC_PASSWORD}
+      # The address a device is TOLD, which goes into its NVS and is never asked
+      # for again. Different from MQTT_HOST on purpose, in every environment.
+      - BROKER_PUBLIC_HOST=${LIVE_DATA_BROKER_PUBLIC_HOST}
+      - BROKER_PUBLIC_PORT=${LIVE_DATA_BROKER_PUBLIC_PORT}
+      - BROKER_PUBLIC_TLS=${LIVE_DATA_BROKER_PUBLIC_TLS}
+    ports:
+      - "8008:8000"
+    networks:
+      - backend
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+      # `service_started`, NOT a healthcheck, and NOT mosquitto-roles.
+      #
+      # krakend's depends_on reaches this service, and krakend has no
+      # healthcheck and no restart policy. Gating this on a broker healthcheck
+      # would mean: probe credentials expand empty -> allow_anonymous false
+      # refuses -> mosquitto permanently unhealthy -> live-data stays Created ->
+      # krakend never starts -> all 191 gateway endpoints go dark, with
+      # `docker compose ps` showing nothing wrong.
+      #
+      # A broker that is down is a 503 on enrolment, not a dead admin surface:
+      # /health/readiness deliberately does not gate on it either.
+      mosquitto:
+        condition: service_started
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health/readiness', timeout=3).status==200 else 1)\""
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+  live-data-worker:
+    profiles: ["dev"]
+    build:
+      context: live-data
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    environment:
+      - ENV=local
+      - CRM_DATABASE_URL=postgresql+asyncpg://live_data_svc:${LIVE_DATA_DB_PASSWORD}@postgres:5432/crm_db
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://live_data_svc:${LIVE_DATA_DB_PASSWORD}@postgres:5432/live_data_local
+      - ALLOW_ORIGIN=*
+      - CRM_DB_POOL_SIZE=5
+      - CRM_DB_MAX_OVERFLOW=5
+      - LOCAL_DB_POOL_SIZE=5
+      - LOCAL_DB_MAX_OVERFLOW=5
+      - MQTT_HOST=mosquitto
+      - MQTT_PORT=1883
+      - MQTT_TLS=false
+      # The worker connects as the INGEST client, NOT as the dynsec admin.
+      # The admin's role grants publishClientSend on $$CONTROL/... and nothing
+      # on ce/#, so it would SUBSCRIBE successfully, get a normal SUBACK, and
+      # receive nothing at all - for ever, with no error anywhere.
+      - MQTT_INGEST_USERNAME=${MQTT_INGEST_USERNAME}
+      - MQTT_INGEST_PASSWORD=${MQTT_INGEST_PASSWORD}
+      # DEV ONLY: how long the worker trusts its copy of the live-data
+      # subscription set (default 60 s). 5 lets scripts/verify-live-ingest.sh
+      # section M observe a switch-off in seconds; staging and production keep
+      # the default, and the scheduler keeps it here too.
+      - SUBSCRIPTION_CACHE_TTL_SECONDS=5
+    # NO PORTS and NO compose healthcheck: Dockerfile.worker carries its own,
+    # based on the mtime of /tmp/worker.alive - and worker/main.py stops
+    # touching that file while the broker connection is down, so a worker that
+    # cannot ingest is restarted rather than reporting healthy for ever.
+    #
+    # ONE REPLICA, deliberately. Two workers on a fixed MQTT client id kick each
+    # other off the broker for ever, and both keep reporting healthy.
+    networks:
+      - backend
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+      # The worker needs the dynsec `ingest` role to exist before it subscribes
+      # - without it the SUBSCRIBE is granted and nothing is ever delivered.
+      mosquitto-roles:
+        condition: service_completed_successfully
+
+  # ---------------------------------------------------------------------------
+  # live-data-scheduler — the THIRD live-data container (build step 8).
+  #
+  # Rollups every 15 minutes, the ownership projection hourly (and on the next
+  # tick after a device appears on a new EAN), partitions and
+  # retention nightly. Same image as live-data-worker, different entrypoint, and
+  # a separate container ON PURPOSE:
+  #
+  #   worker/main.py touches /tmp/worker.alive ONLY while the MQTT connection is
+  #   up, and Dockerfile.worker's HEALTHCHECK kills the container when that file
+  #   is 60 s stale. Both are correct for ingest and documented at both ends. But
+  #   co-hosting these jobs there would mean a one-minute broker hiccup SIGKILLs
+  #   a partition ATTACH or a retention DROP mid-flight.
+  #
+  # NO MQTT CREDENTIALS. It has no broker and no reason to hold any.
+  # ---------------------------------------------------------------------------
+  live-data-scheduler:
+    profiles: ["dev"]
+    build:
+      context: live-data
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    command: ["python", "-m", "worker.scheduler_main"]
+    environment:
+      - ENV=local
+      - CRM_DATABASE_URL=postgresql+asyncpg://live_data_svc:${LIVE_DATA_DB_PASSWORD}@postgres:5432/crm_db
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://live_data_svc:${LIVE_DATA_DB_PASSWORD}@postgres:5432/live_data_local
+      - ALLOW_ORIGIN=*
+      - CRM_DB_POOL_SIZE=5
+      - CRM_DB_MAX_OVERFLOW=5
+      - LOCAL_DB_POOL_SIZE=5
+      - LOCAL_DB_MAX_OVERFLOW=5
+    # MANDATORY OVERRIDE, not a refinement. The image bakes a healthcheck reading
+    # /tmp/worker.alive, which this process never writes — without this block the
+    # container is unhealthy from its first probe onwards, for ever, while doing
+    # its job perfectly.
+    #
+    # And unlike the worker's, this heartbeat is UNGATED: there is no dependency
+    # whose loss should restart the scheduler. A database outage makes every job
+    # log and the next tick retry, whereas a restart loop during an outage means
+    # the scheduler is down at the moment the database comes back.
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "python -c \"import os, time, sys; sys.exit(0 if time.time() - os.path.getmtime('/tmp/scheduler.alive') < 60 else 1)\""
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+    networks:
+      - backend
+    # NO mosquitto dependency of any kind — not the broker and not the roles.
+    # Gating this on either would delay the rollups behind a broker that has
+    # nothing to do with them.
+    #
+    # Replicas are safe here, unlike the ingest worker: every job takes an
+    # advisory lock first, so a second instance finds the lock held and skips.
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+
   mailpit:
     profiles: ["dev"]
     image: axllent/mailpit:latest
@@ -1248,6 +1609,14 @@ services:
 volumes:
   minio_data:
   nats_data:
+  # Mosquitto's session store AND dynamic-security.json. NAMED rather than
+  # bind-mounted because the image runs as uid 1883 and a root-owned bind
+  # mount makes Mosquitto log an error and carry on - sessions then silently
+  # do not survive a restart.
+  #
+  # In production this volume is BACKED UP: losing dynamic-security.json
+  # means re-enrolling the entire fleet by hand, on devices with no keyboard.
+  mosquitto_data:
 
 networks:
   backend:

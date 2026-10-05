@@ -38,6 +38,7 @@ pw_for() {
         billing_svc)                 printf '%s' "$BILLING_DB_PASSWORD" ;;
         administrative_document_svc) printf '%s' "$ADMINISTRATIVE_DOCUMENT_DB_PASSWORD" ;;
         notification_dispatch_svc)   printf '%s' "$NOTIFICATION_DISPATCH_DB_PASSWORD" ;;
+        live_data_svc)               printf '%s' "$LIVE_DATA_DB_PASSWORD" ;;
         *) printf '' ;;
     esac
 }
@@ -59,7 +60,7 @@ check() {
     fi
 }
 
-AUDIT_WRITERS='allocation_key_svc simulation_key_svc news_board_svc billing_svc administrative_document_svc'
+AUDIT_WRITERS='allocation_key_svc simulation_key_svc news_board_svc billing_svc administrative_document_svc live_data_svc'
 NOTIFIERS='news_board_svc billing_svc administrative_document_svc'
 
 # ---------------------------------------------------------------------------

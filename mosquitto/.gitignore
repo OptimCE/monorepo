@@ -1,0 +1,14 @@
+# The dynamic-security state and anything the plugin writes beside it.
+#
+# THIS REPOSITORY IS PUBLIC. `dynamic-security.json` holds the broker's client
+# list and password hashes, and on Mosquitto 2.1.x a broker that starts without
+# it generates its own plus a `.pw` file containing passwords IN PLAINTEXT. A
+# committed dev key or admin password is a permanent leak - git history keeps it
+# after the file is deleted.
+#
+# These live on a named Docker volume in dev, so nothing should appear here at
+# all; the rule exists for the day someone bind-mounts it to look inside.
+data/
+certs/
+*.pw
+dynamic-security.json

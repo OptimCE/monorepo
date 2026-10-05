@@ -36,7 +36,8 @@ BEGIN
     'news_board_svc',
     'billing_svc',
     'administrative_document_svc',
-    'notification_dispatch_svc'
+    'notification_dispatch_svc',
+    'live_data_svc'
   ] LOOP
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = r) THEN
       EXECUTE format(
@@ -58,3 +59,4 @@ ALTER ROLE news_board_svc              WITH LOGIN PASSWORD :'news_board_password
 ALTER ROLE billing_svc                 WITH LOGIN PASSWORD :'billing_password';
 ALTER ROLE administrative_document_svc WITH LOGIN PASSWORD :'administrative_document_password';
 ALTER ROLE notification_dispatch_svc   WITH LOGIN PASSWORD :'notification_dispatch_password';
+ALTER ROLE live_data_svc               WITH LOGIN PASSWORD :'live_data_password';

@@ -5,3 +5,13 @@
 # that points nowhere near the cause. Pin them.
 postgres/**/*.sh   text eol=lf
 postgres/**/*.sql  text eol=lf
+
+# The same trap, one directory over: scripts/*.sh run on the HOST under Git
+# Bash, where a checked-out CRLF line ending is just as fatal - bash reports
+# `$'\r': command not found` and nothing else, pointing at a blank line.
+scripts/**/*.sh    text eol=lf
+
+# And the entry point itself, for the same reason: docker-stack.sh runs under
+# Git Bash, and `survey-ean` hands one of the pinned postgres/ scripts to
+# `docker compose run --entrypoint`. A CRLF docker-stack.sh fails the same way.
+docker-stack.sh    text eol=lf

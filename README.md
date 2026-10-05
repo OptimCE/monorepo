@@ -52,9 +52,11 @@ configuration that belongs to this repository:
 | `keycloak/` | Keycloak image build, realm configuration, and providers |
 | `nginx/` | Reverse proxy configuration and certificates |
 | `postgres/` | Provisioning and verification for the unified database instance — roles, databases, grants ([README](postgres/README.md)) |
+| `mosquitto/` | MQTT broker configuration for Live Data (`mosquitto.conf`) |
 | `crm-frontend-config/` | Generated frontend runtime configuration |
 | `reference/` | Shared reference data (e.g. `regulators.json`) |
-| `docs/runbooks/` | Operational procedures, e.g. [the production database consolidation](docs/runbooks/database-consolidation.md) |
+| `scripts/` | End-to-end checks against the running dev stack, e.g. `verify-live-ingest.sh` for Live Data |
+| `docs/runbooks/` | Operational procedures, e.g. [the production database consolidation](docs/runbooks/database-consolidation.md) and [Live Data](docs/runbooks/live-data.md) |
 
 ## Architecture
 
@@ -68,15 +70,17 @@ The development stack (`docker-compose.dev.yml`) runs the following services:
 - **administrative-document** (+ worker): regulatory dossiers, CWaPE deadlines
   and form generation
 - **billing** (+ worker): invoicing
+- **live-data** (+ worker, + scheduler): smart-meter telemetry over MQTT —
+  device enrolment, ingestion, hourly and daily rollups
 - **document-generation**: document generation worker
 - **notification-dispatch**: outbound email delivery worker
 - **optimce-news-board**: community news board
 
 **Databases** (PostgreSQL)
-- **postgres**: one instance, six logical databases — `crm_db`,
+- **postgres**: one instance, seven logical databases — `crm_db`,
   `allocation_key_local`, `simulation_key_local`, `news_board_local`,
-  `billing_local`, `administrative_document_local` — each owned by its own login
-  role. See [postgres/README.md](postgres/README.md).
+  `billing_local`, `administrative_document_local`, `live_data_local` — each
+  owned by its own login role. See [postgres/README.md](postgres/README.md).
 - **keycloak-db**: a separate instance; Keycloak manages its own schema.
 
 **Platform**
@@ -85,12 +89,15 @@ The development stack (`docker-compose.dev.yml`) runs the following services:
 - **reverse-proxy**: Nginx reverse proxy, single entry point for the app
 - **minio**: S3-compatible object storage
 - **nats**: messaging between services and their workers
+- **mosquitto** (+ mosquitto-init, mosquitto-roles): MQTT broker for Live Data
+  telemetry, with the dynamic-security plugin; the two run-once containers
+  create its security file before it starts and its roles once it is up
 - **jaeger**: distributed tracing (OpenTelemetry)
 
 **Configuration generation** (`init` profile, run-once containers)
 - **swagger-doc-gen**, **generation-doc-gen**, **simulation-doc-gen**,
-  **news-doc-gen**, **billing-doc-gen**, **administrative-document-doc-gen**:
-  collect each service's OpenAPI specification
+  **news-doc-gen**, **billing-doc-gen**, **administrative-document-doc-gen**,
+  **live-data-doc-gen**: collect each service's OpenAPI specification
 - **krakend-config**, **keycloak-config**, **nginx-config**,
   **crm-frontend-config**: render the gateway, auth, proxy, and frontend
   configuration from templates
@@ -149,9 +156,15 @@ Each service's existing schema file is reused verbatim:
 | `news_board_local` | `news-board/scripts/sql/schema.sql` |
 | `billing_local` | `billing/scripts/sql/schema.sql` |
 | `administrative_document_local` | `administrative-document/scripts/sql/schema.sql` + its seeds |
+| `live_data_local` | `live-data/scripts/sql/schema.sql` |
 
 `crm-backend/database_script/init.sql` is the pure-DDL sibling used for
 production; it is not applied by the dev stack.
+
+Live Data is off for Test Community in the dev seed: until it is switched on,
+the Live Data page is hidden and its API answers 403. Switch it on as an ADMIN
+from the Annex services page, or run `./scripts/verify-live-ingest.sh`, which
+subscribes Test Community and leaves it subscribed.
 
 Keycloak keeps its **own** instance (`keycloak-db`, port 8081) and initialises a
 base realm from `keycloak/dev-config.json`.
@@ -170,6 +183,10 @@ Some configurations are generated automatically via the `init` profile services
 (see [Architecture](#architecture)), for example:
 
 - `swagger-doc-gen`: generates `./krakend/config/swagger.yaml`
+- `live-data-doc-gen`: generates `./krakend/config/live.json` and
+  `./krakend/config/live-public.json` — two specifications from one service,
+  because the gateway enables JWT validation per service entry and the public
+  enrolment route needs an entry without it
 - `krakend-config`: generates `./krakend/config/krakend.json`
 - `crm-frontend-config`: generates `./crm-frontend-config/config.json`
 
@@ -298,13 +315,15 @@ startup.
 
 | Service | Host Port | Container Port | Protocol | Usage |
 |---|---:|---:|---|---|
+| `mosquitto` | `127.0.0.1:1883` | `1883` | `tcp` | MQTT broker (Live Data), plaintext — loopback only |
 | `allocation-key-generation` | `8002` | `8000` | `tcp` | Allocation key API |
 | `simulation-key` | `8003` | `8000` | `tcp` | Simulation API |
 | `optimce-news-board` | `8004` | `8000` | `tcp` | News board API |
 | `billing` | `8005` | `8000` | `tcp` | Billing API |
 | `administrative-document` | `8006` | `8000` | `tcp` | Administrative document API |
 | `mailpit` | `8007` | `8025` | `tcp` | Dev mail catcher (web UI) |
-| `postgres` | `8080` | `5432` | `tcp` | PostgreSQL — six logical databases (crm_db, billing_local, …) |
+| `live-data` | `8008` | `8000` | `tcp` | Live Data API |
+| `postgres` | `8080` | `5432` | `tcp` | PostgreSQL — seven logical databases (crm_db, billing_local, …) |
 | `keycloak-db` | `8081` | `5432` | `tcp` | PostgreSQL Keycloak |
 | `keycloak` | `8082` | `8080` | `tcp` | Keycloak Authentication |
 | `jaeger` | `8084` | `6831` | `udp` | Jaeger Collector |
@@ -318,6 +337,12 @@ startup.
 | `minio` | `8092` | `9001` | `tcp` | MinIO Console |
 | `nats` | `8094` | `4222` | `tcp` | NATS client |
 | `nats` | `8095` | `8222` | `tcp` | NATS monitoring |
+
+`mosquitto` is published on the host **loopback only** (`127.0.0.1:1883`): the
+dev listener is plaintext, and a bare `1883:1883` would bind every interface and
+put the broker on your LAN. It is there for host-side tools such as the connector
+simulator; production devices use 8883 with TLS, which the dev broker does not
+have. `live-data-worker` and `live-data-scheduler` publish no port.
 
 ## Translations
 
