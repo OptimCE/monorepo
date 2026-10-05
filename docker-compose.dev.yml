@@ -531,7 +531,7 @@ services:
 
   krakend:
     profiles: ["dev"]
-    image: krakend:latest@sha256:bd392b692271209927da6c62f1b42d7f8f7bd0cd60b00d97c93bb5b8d42b4999
+    image: krakend:latest@sha256:e93eed25554145dc4f2727d203e96c655bd2e609459f05e13afcbf590582496f
     ports:
       - "8086:8080"
     volumes:
