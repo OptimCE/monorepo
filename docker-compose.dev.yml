@@ -1226,7 +1226,7 @@ services:
   # Safe to re-run on every `up`; never trustworthy as a gate.
   mosquitto-init:
     profiles: ["dev"]
-    image: eclipse-mosquitto:2.1.2-alpine@sha256:6f8d8a947c506f8a2290ec65cd4bd2bc7cb4d43fb5f6271f861cb013e2ef9797
+    image: eclipse-mosquitto:2.1.2-alpine@sha256:38c0da4f2ef84284d47b3b3eeea1cb3bdeabe81ee10caf0cd5c5ff61ee3ea408
     user: "1883:1883"
     volumes:
       - mosquitto_data:/mosquitto/data
@@ -1259,7 +1259,7 @@ services:
     # exist in 2.0.x, where a `%u` ACL is a literal string and a device can
     # publish NOWHERE - silently. Note the tag: `eclipse-mosquitto:2.1.2` does
     # not exist, the 2.1 line is published only `-alpine`.
-    image: eclipse-mosquitto:2.1.2-alpine@sha256:6f8d8a947c506f8a2290ec65cd4bd2bc7cb4d43fb5f6271f861cb013e2ef9797
+    image: eclipse-mosquitto:2.1.2-alpine@sha256:38c0da4f2ef84284d47b3b3eeea1cb3bdeabe81ee10caf0cd5c5ff61ee3ea408
     restart: unless-stopped
     volumes:
       - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
@@ -1316,7 +1316,7 @@ services:
   # runs on every `up`. The final getRole is the real assertion.
   mosquitto-roles:
     profiles: ["dev"]
-    image: eclipse-mosquitto:2.1.2-alpine@sha256:6f8d8a947c506f8a2290ec65cd4bd2bc7cb4d43fb5f6271f861cb013e2ef9797
+    image: eclipse-mosquitto:2.1.2-alpine@sha256:38c0da4f2ef84284d47b3b3eeea1cb3bdeabe81ee10caf0cd5c5ff61ee3ea408
     environment:
       - MOSQUITTO_DYNSEC_USER=${MOSQUITTO_DYNSEC_USER}
       - MOSQUITTO_DYNSEC_PASSWORD=${MOSQUITTO_DYNSEC_PASSWORD}
