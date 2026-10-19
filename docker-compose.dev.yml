@@ -426,6 +426,50 @@ services:
       retries: 5
       start_period: 120s
 
+  # The internal GRD lookup: which network operator (GRD/DSO) serves a Belgian
+  # address, for the GRD prefill of the meter form. Built from ./dso-lookup, a
+  # FastAPI service on billing's conventions that is NOT an annex:
+  #   - only crm-backend calls it, over `backend`, the way it calls best-address;
+  #   - it has no *-doc-gen, no krakend-builder.yaml entry and no place in
+  #     krakend-config's depends_on. The gateway only sees crm-backend's own
+  #     /dso/* routes, which travel in crm-backend's swagger like any CRM route;
+  #   - it must NEVER be named in ANNEX_CATALOG_ENABLE/DISABLE: a name the
+  #     catalogue does not contain refuses crm-backend's boot.
+  #
+  # There is deliberately NO depends_on from crm-backend, as for best-address.
+  # POST /meters never calls it: with DSO_LOOKUP_URL blank or this container
+  # down, GET /dso/resolve answers `status: unavailable` and the meter form keeps
+  # its plain GRD select. Nothing is ever blocked on it.
+  #
+  # The data (a pinned belgian-dso-map release, dso-lookup/data/) is baked into
+  # the image, so a rebuild IS the data refresh. A new release arrives as the
+  # weekly bump PR in OptimCE/dso-lookup, reviewed there like any code change.
+  #
+  # Loopback-only, like best-address: it has no authentication of its own. The
+  # port is for curl checks (/health/readiness, /dso/meta) from the host.
+  dso-lookup:
+    profiles: ["dev"]
+    build:
+      context: dso-lookup
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - ENV=local
+    ports:
+      - "127.0.0.1:8097:8000"
+    networks:
+      - backend
+    healthcheck:
+      # Readiness is red until the CSV data has loaded and checked out; a bad
+      # data directory fails the boot outright rather than serving nothing.
+      test:
+        - "CMD-SHELL"
+        - "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health/readiness', timeout=3).status==200 else 1)\""
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   swagger-doc-gen:
     profiles: ["init", "dev"]
     build:
@@ -571,6 +615,9 @@ services:
   krakend:
     profiles: ["dev"]
     image: krakend:latest@sha256:bd392b692271209927da6c62f1b42d7f8f7bd0cd60b00d97c93bb5b8d42b4999
+    # Without a restart policy the gateway, and with it every /api route,
+    # stayed down after a host reboot, a Docker daemon restart or a crash.
+    restart: unless-stopped
     ports:
       - "8086:8080"
     volumes:
@@ -599,6 +646,11 @@ services:
   reverse-proxy:
     profiles: ["dev"]
     image: nginx:latest@sha256:7150b3a39203cb5bee612ff4a9d18774f8c7caf6399d6e8985e97e28eb751c18
+    # Without a restart policy the public entry point stayed down after a host
+    # reboot, a Docker daemon restart or a crash. nginx resolves its upstreams
+    # (crm-backend, krakend, keycloak, ...) at start: started before them, it
+    # exits and is restarted until they resolve.
+    restart: unless-stopped
     ports:
       - "8087:80"
       - "8088:443"
@@ -691,6 +743,14 @@ services:
       - GEOCODING_BACKFILL_OPERATORS=${GEOCODING_BACKFILL_OPERATORS:-}
       - BEST_ADDRESS_URL=${BEST_ADDRESS_URL-http://best-address:8080/belgianAddress/v2}
       - BEST_ADDRESS_TIMEOUT_MS=${BEST_ADDRESS_TIMEOUT_MS:-1500}
+      # The internal GRD lookup (the `dso-lookup` service above). Same `-` form
+      # and same contract as BEST_ADDRESS_URL: blank == OFF (GET /dso/resolve
+      # answers `status: unavailable` and the meter form keeps its plain GRD
+      # select), and a deleted line falls back to this default. No depends_on,
+      # for the reasons given on the service. 1000 ms because one resolve makes
+      # at most two sequential calls, and both must fit KrakenD's 3000 ms.
+      - DSO_LOOKUP_URL=${DSO_LOOKUP_URL-http://dso-lookup:8000}
+      - DSO_LOOKUP_TIMEOUT_MS=${DSO_LOOKUP_TIMEOUT_MS:-1000}
       # Annex catalogue. config/annexes-services.json is baked into the image and
       # shared with production, so an annex whose service is not deployed
       # everywhere ships "defaultEnabled": false and a deployment opts in here.
@@ -777,6 +837,21 @@ services:
       dockerfile: Dockerfile.worker
     restart: unless-stopped
     cpus: "2.0"
+    # One solver process (cpus - 1). OLAGSA refuses generations over 400,000
+    # participants x timesteps, which keeps a solve near 1 GB, plus ~0.3 GB for
+    # the worker itself; brute_force peaks near 0.2 GB at that limit. A solver
+    # killed for memory is retried a bounded number of times. Swap capped at
+    # the same value so a runaway solve is killed instead of thrashing the
+    # host. See allocation-key-generation's README, "Resource sizing".
+    mem_limit: 2g
+    memswap_limit: 2g
+    # 60 s to stop, not Docker's default 10. On SIGTERM the worker waits up to
+    # 25 s for in-flight runs to finish and ack, then drains its subscription
+    # and the NATS connection and flushes telemetry. At 10 s every
+    # `docker-stack.sh stop` / `restart` SIGKILLed it mid-drain, and an
+    # interrupted run was redelivered and solved again after its ack_wait.
+    # Same on the four other NATS workers below.
+    stop_grace_period: 60s
     environment:
       - ENV=local
       - CRM_DATABASE_URL=postgresql+asyncpg://allocation_key_svc:${ALLOCATION_KEY_DB_PASSWORD}@postgres:5432/crm_db
@@ -861,6 +936,16 @@ services:
       dockerfile: Dockerfile.worker
     restart: unless-stopped
     cpus: "2.0"
+    # One solver process (cpus - 1). simulation-key refuses runs over
+    # 5,000,000 participants x timesteps x iterations; at that limit the worker
+    # peaked at 1.9 GB, page cache included (2026-10-09). A solver process is the
+    # kernel's first OOM victim, and its crash is retried a bounded number of
+    # times; swap capped at the same value so a runaway solve is killed instead
+    # of thrashing the host. See simulation-key's README, "Resource sizing".
+    mem_limit: 2560m
+    memswap_limit: 2560m
+    # See allocation-key-generation-worker: 25 s in-flight drain on SIGTERM.
+    stop_grace_period: 60s
     environment:
       - ENV=local
       - CRM_DATABASE_URL=postgresql+asyncpg://simulation_key_svc:${SIMULATION_KEY_DB_PASSWORD}@postgres:5432/crm_db
@@ -1042,6 +1127,8 @@ services:
       context: administrative-document
       dockerfile: Dockerfile.worker
     restart: unless-stopped
+    # See allocation-key-generation-worker: 25 s in-flight drain on SIGTERM.
+    stop_grace_period: 60s
     environment:
       - ENV=local
       - CRM_DATABASE_URL=postgresql+asyncpg://administrative_document_svc:${ADMINISTRATIVE_DOCUMENT_DB_PASSWORD}@postgres:5432/crm_db
@@ -1095,6 +1182,8 @@ services:
       context: billing
       dockerfile: Dockerfile.worker
     restart: unless-stopped
+    # See allocation-key-generation-worker: 25 s in-flight drain on SIGTERM.
+    stop_grace_period: 60s
     environment:
       - ENV=local
       - CRM_DATABASE_URL=postgresql+asyncpg://billing_svc:${BILLING_DB_PASSWORD}@postgres:5432/crm_db
@@ -1140,6 +1229,8 @@ services:
       context: document-generation
       dockerfile: Dockerfile.worker
     restart: unless-stopped
+    # See allocation-key-generation-worker: 25 s in-flight drain on SIGTERM.
+    stop_grace_period: 60s
     environment:
       - ENV=local
       - NATS_URL=nats://nats:4222
@@ -1588,6 +1679,9 @@ services:
     build:
       context: crm-frontend
       dockerfile: Dockerfile
+    # Without a restart policy the SPA stayed down after a host reboot, a
+    # Docker daemon restart or a crash.
+    restart: unless-stopped
     # keycloak and reverse-proxy already gate on their own config containers this way;
     # this one did not. config.json below is gitignored, so without the gate Docker
     # resolves the bind source before crm-frontend-config has written it and creates a

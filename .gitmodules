@@ -37,3 +37,6 @@
 [submodule "live-data"]
 	path = live-data
 	url = ../live-data.git
+[submodule "dso-lookup"]
+	path = dso-lookup
+	url = ../dso-lookup.git

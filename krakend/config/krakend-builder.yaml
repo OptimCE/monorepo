@@ -4,6 +4,17 @@ global:
     KEYCLOAK_URL: http://keycloak:8080/keycloak
     REALM_NAME: optimce-realm
     ISSUER: http://localhost:8087/keycloak/realms/optimce-realm
+  # Every other endpoint keeps the generator's 3000ms. The upload and
+  # file-download endpoints (multipart bodies, non-JSON responses: consumption
+  # import, document/logo uploads, xlsx/pdf exports...) get this instead,
+  # because their backend time grows with the file: importing one month of RESA
+  # readings takes ~1.3 s for 5 meters and ~26 s for 100 (measured on the dev
+  # machine, 2026-10-06). At 3000ms the gateway answered 500 "context deadline
+  # exceeded" while crm-backend went on to commit the import, so the SPA
+  # reported a failure for data that was saved.
+  # Keep it under nginx's 60 s proxy_read_timeout on /api/, so that an expiry
+  # is reported by the gateway rather than by nginx.
+  stream_timeout: 50s
 
 services:
   root:
