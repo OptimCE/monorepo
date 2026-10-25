@@ -42,6 +42,26 @@
         "default-roles-optimce-realm"
       ],
       "groups": ["/Test Community/ADMIN"]
+    },
+    {
+      "id": "e8a59424-2971-4744-b221-1d32a0dc34a3",
+      "username": "demo3",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "demo3@example.com",
+      "firstName": "Demo",
+      "lastName": "Three",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "demo3",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-optimce-realm"
+      ],
+      "groups": []
     }
   ],
   "clients": [
