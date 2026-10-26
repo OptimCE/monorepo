@@ -614,7 +614,7 @@ services:
 
   krakend:
     profiles: ["dev"]
-    image: krakend:latest@sha256:bd392b692271209927da6c62f1b42d7f8f7bd0cd60b00d97c93bb5b8d42b4999
+    image: krakend:latest@sha256:8b1ddc8546ad71b4b43dbc977b7b55873d853754ef75eccc52a6177c281dd568
     # Without a restart policy the gateway, and with it every /api route,
     # stayed down after a host reboot, a Docker daemon restart or a crash.
     restart: unless-stopped
