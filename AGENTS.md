@@ -32,6 +32,7 @@ Use `docker-stack.sh` to manage the CRM stack:
 ### Docker image
 
 - `crm-backend` - Backend api of the app
+- `crm-outbox-relay` - Same image as `crm-backend`, its own process: publishes the CRM's outbox to NATS (`core.evt.*`), which the administrative-document annexe consumes
 - `crm-frontend` - Angular interface to interact with the api
 - `krakend/swagger2krakend` - Python parser translating yaml openapi file to krakend config file
 - `keycloak/kc-groupid-mapper` - Keycloak + addons to add additional group info to the backend

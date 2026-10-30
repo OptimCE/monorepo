@@ -785,6 +785,53 @@ services:
       redis:
         condition: service_healthy
 
+  # The core's outbox relay (crm-backend/src/outbox-relay.ts): publishes the
+  # rows crm-backend writes to outbox_event, in the same transaction as the CRM
+  # change, onto JetStream `core.evt.<type>` (stream CORE_EVENTS, which this
+  # service creates and owns). Same image as crm-backend, its own process: an
+  # API restart never stalls the relay, and the relay never competes with
+  # requests. The administrative annexe's worker consumes the stream.
+  #
+  # Same DB variables and role as crm-backend: the relay only reads and stamps
+  # crm_db.outbox_event. The healthcheck reads the heartbeat the loop touches on
+  # every turn (also while idle), so a wedged loop shows as unhealthy.
+  crm-outbox-relay:
+    profiles: ["dev"]
+    build:
+      context: crm-backend
+      dockerfile: Dockerfile.dev
+    command: npm run relay:dev
+    restart: unless-stopped
+    environment:
+      - MICROSERVICE_NAME=crm-outbox-relay
+      - REMOTE_LOGGING=${REMOTE_LOGGING}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=crm_svc
+      - DB_PASSWORD=${CRM_DB_PASSWORD}
+      - DB_NAME=crm_db
+      - REGULATORS_CONFIG_PATH=/app/reference/regulators.json
+      - NATS_URL=nats://nats:4222
+      - OUTBOX_RELAY_POLL_INTERVAL_MS=${OUTBOX_RELAY_POLL_INTERVAL_MS:-500}
+      - OUTBOX_STREAM_MAX_AGE_DAYS=${OUTBOX_STREAM_MAX_AGE_DAYS:-30}
+    volumes:
+      - ./reference:/app/reference:ro
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "find /tmp/outbox-relay.alive -mmin -1 | grep -q . || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 30s
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+      nats:
+        condition: service_healthy
+
   allocation-key-generation:
     profiles: ["dev"]
     build:

@@ -154,6 +154,34 @@ run fail notification_dispatch_svc "$(pw_for notification_dispatch_svc)" crm_db 
     "INSERT INTO audit_log (action, source, entity_type) VALUES ('_verify', '_verify', '_verify')" \
     'notification_dispatch_svc INSERT audit_log'
 
+echo
+echo '   ... regulatory_link_status: only the administrative annexe writes, and'
+echo '   only the four effect columns. The identity of an episode is immutable.'
+for role in allocation_key_svc simulation_key_svc news_board_svc billing_svc notification_dispatch_svc live_data_svc; do
+    pw=$(pw_for "$role")
+    # Asked of the catalogue, not attempted: an INSERT of a dummy row would also
+    # fail on its foreign keys, and prove nothing about the grant. Division by
+    # zero when the privilege is absent = the expected failure.
+    run fail "$role" "$pw" crm_db \
+        "SELECT 1 / has_table_privilege('regulatory_link_status', 'INSERT')::int" \
+        "$role INSERT regulatory_link_status"
+    run fail "$role" "$pw" crm_db \
+        'UPDATE regulatory_link_status SET regulatory_status = regulatory_status WHERE id = -1' \
+        "$role UPDATE regulatory_link_status.regulatory_status"
+done
+ad_pw=$(pw_for administrative_document_svc)
+for column in id_community id_sharing_operation subject_type subject_ref id_dossier_origin created_at; do
+    run fail administrative_document_svc "$ad_pw" crm_db \
+        "UPDATE regulatory_link_status SET $column = $column WHERE id = -1" \
+        "administrative_document_svc UPDATE regulatory_link_status.$column"
+done
+run fail administrative_document_svc "$ad_pw" crm_db \
+    'DELETE FROM regulatory_link_status WHERE id = -1' \
+    'administrative_document_svc DELETE regulatory_link_status'
+run fail administrative_document_svc "$ad_pw" crm_db \
+    'UPDATE meter_data SET status = status WHERE id = -1' \
+    'administrative_document_svc UPDATE meter_data'
+
 # ---------------------------------------------------------------------------
 echo
 printf 'isolation: %s passed, %s failed\n' "$PASSED" "$FAILED"

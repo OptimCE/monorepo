@@ -140,14 +140,43 @@ GRANT UPDATE ON outbound_message  TO notification_dispatch_svc;
 -- KEY) — the one write in the matrix with no sequence.
 GRANT INSERT ON email_suppression TO notification_dispatch_svc;
 
+-- regulatory_link_status — the administrative annexe writes its effects into
+-- the core itself (docs/specs/espace-administratif.md, "Écriture des effets"):
+-- it opens an episode (INSERT) and moves its four EFFECT columns (UPDATE on
+-- those columns only). The identity of an episode — community, operation,
+-- subject, dossier of origin — cannot be rewritten, nothing can be deleted, and
+-- the exclusion constraint on the table keeps an EAN in one operation per date
+-- whoever writes. GENERATED ALWAYS AS IDENTITY: no sequence grant. The effects
+-- port upserts with ON CONFLICT (...) DO UPDATE, which needs exactly these
+-- UPDATE columns plus SELECT (granted above).
+--
+-- Guarded because this file runs on EVERY start, also against a crm_db whose
+-- schema predates the table (the sidecar applies the schema only to an empty
+-- database): an unconditional GRANT on a missing table would fail the whole
+-- provisioning under ON_ERROR_STOP. Apply
+-- crm-backend/database_script/2026-10-29_regulatory_link_status.sql, then
+-- restart postgres-init.
+DO $$
+BEGIN
+    IF to_regclass('public.regulatory_link_status') IS NOT NULL THEN
+        GRANT INSERT ON regulatory_link_status TO administrative_document_svc;
+        GRANT UPDATE (regulatory_status, valid_from, valid_to, regulatory_ref)
+            ON regulatory_link_status TO administrative_document_svc;
+    ELSE
+        RAISE NOTICE 'regulatory_link_status absent: administrative_document_svc gets no effect grants yet';
+    END IF;
+END
+$$;
+
 RESET ROLE;
 
 -- ---------------------------------------------------------------------------
 -- What is deliberately NOT granted, because that is the point:
 --
 --   * No DELETE on anything. No service issues one against crm_db.
---   * No UPDATE for any annexe. Only notification_dispatch_svc, only on
---     outbound_message.
+--   * No UPDATE except two: notification_dispatch_svc on outbound_message, and
+--     administrative_document_svc on the four effect columns of
+--     regulatory_link_status (column-level, nothing else on that table).
 --   * No INSERT on community, app_user, member, meter, document,
 --     sharing_operation, ... for anyone but crm_svc.
 --   * No CREATE on schema public for anyone but crm_svc — no annexe can run DDL

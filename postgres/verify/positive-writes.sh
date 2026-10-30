@@ -163,6 +163,27 @@ SQL
 
 # ---------------------------------------------------------------------------
 echo
+echo 'regulatory_link_status — administrative_document_svc opens an episode and'
+echo '  moves its effect columns, with the upsert its effects port issues.'
+echo '  (Needs one sharing operation; GENERATED ALWAYS AS IDENTITY, so no sequence'
+echo '   grant is involved. Rolled back: nothing is left behind.)'
+check administrative_document_svc 'administrative_document_svc -> regulatory_link_status' <<'SQL'
+BEGIN;
+WITH op AS (SELECT id, id_community FROM sharing_operation ORDER BY id LIMIT 1)
+INSERT INTO regulatory_link_status
+    (id_community, id_sharing_operation, subject_type, subject_ref, id_dossier_origin, regulatory_status, valid_from)
+SELECT id_community, id, 1, '000000000000000000', -1, 2, current_date FROM op
+ON CONFLICT (id_dossier_origin, subject_type, subject_ref)
+DO UPDATE SET regulatory_status = EXCLUDED.regulatory_status, valid_from = EXCLUDED.valid_from,
+              valid_to = EXCLUDED.valid_to, regulatory_ref = EXCLUDED.regulatory_ref;
+UPDATE regulatory_link_status SET regulatory_status = 5, valid_to = NULL, regulatory_ref = 'OPT--1'
+ WHERE id_dossier_origin = -1;
+SELECT 1 / count(*)::int FROM regulatory_link_status WHERE id_dossier_origin = -1 AND regulatory_status = 5;
+ROLLBACK;
+SQL
+
+# ---------------------------------------------------------------------------
+echo
 printf 'positive writes: %s passed, %s failed\n' "$PASSED" "$FAILED"
 if [ "$FAILED" -ne 0 ]; then
     echo 'A GRANTED WRITE DOES NOT WORK. In the running app this failure is'
