@@ -182,6 +182,19 @@ SELECT 1 / count(*)::int FROM regulatory_link_status WHERE id_dossier_origin = -
 ROLLBACK;
 SQL
 
+echo '  ... and withdraws one (status 9, 2026-10-30): a change cancelled before it'
+echo '  was authorised; the annexe has no DELETE, so the row stays.'
+check administrative_document_svc 'administrative_document_svc -> regulatory_link_status (withdrawn)' <<'SQL'
+BEGIN;
+WITH op AS (SELECT id, id_community FROM sharing_operation ORDER BY id LIMIT 1)
+INSERT INTO regulatory_link_status
+    (id_community, id_sharing_operation, subject_type, subject_ref, id_dossier_origin, regulatory_status)
+SELECT id_community, id, 1, '000000000000000000', -1, 1 FROM op;
+UPDATE regulatory_link_status SET regulatory_status = 9 WHERE id_dossier_origin = -1;
+SELECT 1 / count(*)::int FROM regulatory_link_status WHERE id_dossier_origin = -1 AND regulatory_status = 9;
+ROLLBACK;
+SQL
+
 # ---------------------------------------------------------------------------
 echo
 printf 'positive writes: %s passed, %s failed\n' "$PASSED" "$FAILED"
