@@ -60,6 +60,21 @@ check() {
     fi
 }
 
+# check_as <role> <label> — SQL on stdin, run by the superuser (PGUSER of the
+# verify container) so it can stage what the role cannot write itself, then
+# `SET LOCAL ROLE <role>` for the write under test. Must succeed.
+check_as() {
+    role=$1; label=$2
+    if out=$(psql --no-psqlrc -q -v ON_ERROR_STOP=1 -d crm_db -f - 2>&1); then
+        PASSED=$((PASSED + 1))
+        printf '  ok    %s\n' "$label"
+    else
+        FAILED=$((FAILED + 1))
+        printf '  FAIL  %s\n' "$label"
+        printf '%s\n' "$out" | sed 's/^/          /'
+    fi
+}
+
 AUDIT_WRITERS='allocation_key_svc simulation_key_svc news_board_svc billing_svc administrative_document_svc live_data_svc'
 NOTIFIERS='news_board_svc billing_svc administrative_document_svc'
 
@@ -192,6 +207,36 @@ INSERT INTO regulatory_link_status
 SELECT id_community, id, 1, '000000000000000000', -1, 1 FROM op;
 UPDATE regulatory_link_status SET regulatory_status = 9 WHERE id_dossier_origin = -1;
 SELECT 1 / count(*)::int FROM regulatory_link_status WHERE id_dossier_origin = -1 AND regulatory_status = 9;
+ROLLBACK;
+SQL
+
+echo '  ... and its ACTIVE write turns the meter waiting in the CRM active from that'
+echo '  date (2026-11-01, one status per meter): the core trigger is SECURITY'
+echo '  DEFINER, so the role, which cannot write meter_data, still lands it.'
+echo '  (The superuser makes a meter waiting first; rolled back.)'
+check_as administrative_document_svc 'administrative_document_svc -> ACTIVE aligns meter_data' <<'SQL'
+BEGIN;
+CREATE TEMP TABLE picked ON COMMIT DROP AS
+SELECT md.id, md.ean, md.id_sharing_operation, md.id_community
+  FROM meter_data md
+ WHERE md.id_sharing_operation IS NOT NULL AND md.end_date IS NULL
+   AND NOT EXISTS (SELECT 1 FROM regulatory_link_status r
+                    WHERE r.subject_type = 1 AND r.subject_ref = md.ean
+                      AND r.regulatory_status BETWEEN 2 AND 5)
+ ORDER BY md.id LIMIT 1;
+SELECT 1 / count(*)::int FROM picked;
+UPDATE meter_data SET status = 3, start_date = LEAST(start_date, current_date - 1)
+ WHERE id = (SELECT id FROM picked);
+GRANT SELECT ON picked TO administrative_document_svc;
+SET LOCAL ROLE administrative_document_svc;
+INSERT INTO regulatory_link_status
+    (id_community, id_sharing_operation, subject_type, subject_ref, id_dossier_origin, regulatory_status, valid_from)
+SELECT id_community, id_sharing_operation, 1, ean, -1, 5, current_date FROM picked;
+RESET ROLE;
+SELECT 1 / count(*)::int FROM meter_data
+ WHERE ean = (SELECT ean FROM picked) AND status = 1 AND start_date = current_date;
+SELECT 1 / count(*)::int FROM meter_data
+ WHERE id = (SELECT id FROM picked) AND status = 3 AND end_date = current_date - 1;
 ROLLBACK;
 SQL
 

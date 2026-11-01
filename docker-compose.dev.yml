@@ -1146,6 +1146,9 @@ services:
       # silent no-op: core/realtime/bus.py never raises and never blocks a write.
       - REALTIME_ENABLED=${REALTIME_ENABLED}
       - REALTIME_REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
+      # The reception address (phase 4): each community's address is this
+      # template with its code. Empty: no address, the hub shows none.
+      - INBOUND_ADDRESS_TEMPLATE=${INBOUND_ADDRESS_TEMPLATE:-}
     volumes:
       - ./reference:/app/reference:ro
     ports:
@@ -1202,6 +1205,15 @@ services:
       # silent no-op: core/realtime/bus.py never raises and never blocks a write.
       - REALTIME_ENABLED=${REALTIME_ENABLED}
       - REALTIME_REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
+      # The reception address (phase 4): the worker polls one mailbox by IMAP
+      # (GreenMail in dev). No host: no polling.
+      - INBOUND_ADDRESS_TEMPLATE=${INBOUND_ADDRESS_TEMPLATE:-}
+      - INBOUND_IMAP_HOST=${INBOUND_IMAP_HOST:-}
+      - INBOUND_IMAP_PORT=${INBOUND_IMAP_PORT:-993}
+      - INBOUND_IMAP_SSL=${INBOUND_IMAP_SSL:-true}
+      - INBOUND_IMAP_USER=${INBOUND_IMAP_USER:-}
+      - INBOUND_IMAP_PASSWORD=${INBOUND_IMAP_PASSWORD:-}
+      - INBOUND_POLL_SECONDS=${INBOUND_POLL_SECONDS:-120}
     volumes:
       - ./reference:/app/reference:ro
     networks:
@@ -1662,6 +1674,23 @@ services:
       - MP_SMTP_AUTH_ALLOW_INSECURE=true
     ports:
       - "8007:8025"
+    networks:
+      - backend
+
+  # The reception address's mailbox in dev (espace administratif, phase 4): an
+  # IMAP + SMTP test server. The annexe worker polls `demarches` by IMAP (3143,
+  # no TLS). GreenMail has no plus-addressing nor catch-all: a test mail goes to
+  # RCPT TO demarches@optimce.local with the community's address in its To:
+  # header, which is what the worker reads the code from. SMTP is published on
+  # 3025 for the e2e run to send from the host; nothing in the stack sends here.
+  greenmail:
+    profiles: ["dev"]
+    image: greenmail/standalone:2.1.14
+    restart: unless-stopped
+    environment:
+      - GREENMAIL_OPTS=-Dgreenmail.setup.test.smtp -Dgreenmail.setup.test.imap -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.users=demarches:demarches@optimce.local -Dgreenmail.verbose
+    ports:
+      - "3025:3025"
     networks:
       - backend
 
