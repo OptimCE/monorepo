@@ -1290,7 +1290,7 @@ services:
       - STORAGE_REGION=us-east-1
       - DOCGEN_REQUEST_SUBJECT=docgen.request
       - DOCGEN_RESULT_SUBJECT=docgen.result.signature
-      - EVIDENCE_TEMPLATE_URI=s3://${TEMPLATES_BUCKET:-optimce-templates}/signature/evidence/v1/
+      - EVIDENCE_TEMPLATE_URI=s3://${TEMPLATES_BUCKET:-optimce-templates}/signature/evidence/v2/
       - STEP_UP_MAX_AGE_SECONDS=${SIGNATURE_STEP_UP_MAX_AGE_SECONDS:-300}
       - REALTIME_ENABLED=${REALTIME_ENABLED}
       - REALTIME_REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
@@ -1343,7 +1343,7 @@ services:
       - STORAGE_REGION=us-east-1
       - DOCGEN_REQUEST_SUBJECT=docgen.request
       - DOCGEN_RESULT_SUBJECT=docgen.result.signature
-      - EVIDENCE_TEMPLATE_URI=s3://${TEMPLATES_BUCKET:-optimce-templates}/signature/evidence/v1/
+      - EVIDENCE_TEMPLATE_URI=s3://${TEMPLATES_BUCKET:-optimce-templates}/signature/evidence/v2/
       - STEP_UP_MAX_AGE_SECONDS=${SIGNATURE_STEP_UP_MAX_AGE_SECONDS:-300}
       - REALTIME_ENABLED=${REALTIME_ENABLED}
       - REALTIME_REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
