@@ -49,6 +49,7 @@ pw_for() {
         administrative_document_svc) printf '%s' "$ADMINISTRATIVE_DOCUMENT_DB_PASSWORD" ;;
         notification_dispatch_svc)   printf '%s' "$NOTIFICATION_DISPATCH_DB_PASSWORD" ;;
         live_data_svc)               printf '%s' "$LIVE_DATA_DB_PASSWORD" ;;
+        signature_svc)               printf '%s' "$SIGNATURE_DB_PASSWORD" ;;
         *) printf '' ;;
     esac
 }
@@ -61,12 +62,13 @@ news_board_svc|news_board_local
 billing_svc|billing_local
 administrative_document_svc|administrative_document_local
 notification_dispatch_svc|-
-live_data_svc|live_data_local'
+live_data_svc|live_data_local
+signature_svc|signature_local'
 
-LOCAL_DBS='allocation_key_local simulation_key_local news_board_local billing_local administrative_document_local live_data_local'
+LOCAL_DBS='allocation_key_local simulation_key_local news_board_local billing_local administrative_document_local live_data_local signature_local'
 
 # Every role that reaches crm_db.
-CRM_CONSUMERS='allocation_key_svc simulation_key_svc news_board_svc billing_svc administrative_document_svc notification_dispatch_svc live_data_svc'
+CRM_CONSUMERS='allocation_key_svc simulation_key_svc news_board_svc billing_svc administrative_document_svc notification_dispatch_svc live_data_svc signature_svc'
 
 # ---------------------------------------------------------------------------
 echo
@@ -135,7 +137,7 @@ for role in allocation_key_svc simulation_key_svc notification_dispatch_svc; do
         "INSERT INTO notification (id_user, type) VALUES (1, '_verify')" \
         "$role INSERT notification"
 done
-for role in allocation_key_svc simulation_key_svc news_board_svc billing_svc administrative_document_svc; do
+for role in allocation_key_svc simulation_key_svc news_board_svc billing_svc administrative_document_svc signature_svc; do
     pw=$(pw_for "$role")
     run fail "$role" "$pw" crm_db \
         'UPDATE outbound_message SET status = status WHERE id = -1' \
@@ -144,20 +146,22 @@ for role in allocation_key_svc simulation_key_svc news_board_svc billing_svc adm
         "INSERT INTO email_suppression (email, reason) VALUES ('_verify@example.invalid', 4)" \
         "$role INSERT email_suppression"
 done
-for role in simulation_key_svc news_board_svc billing_svc administrative_document_svc notification_dispatch_svc; do
+for role in simulation_key_svc news_board_svc billing_svc administrative_document_svc notification_dispatch_svc signature_svc; do
     pw=$(pw_for "$role")
     run fail "$role" "$pw" crm_db \
         "INSERT INTO allocation_key (name, description, id_community) VALUES ('_verify', '_verify', 1)" \
         "$role INSERT allocation_key"
 done
-run fail notification_dispatch_svc "$(pw_for notification_dispatch_svc)" crm_db \
-    "INSERT INTO audit_log (action, source, entity_type) VALUES ('_verify', '_verify', '_verify')" \
-    'notification_dispatch_svc INSERT audit_log'
+for role in notification_dispatch_svc signature_svc; do
+    run fail "$role" "$(pw_for "$role")" crm_db \
+        "INSERT INTO audit_log (action, source, entity_type) VALUES ('_verify', '_verify', '_verify')" \
+        "$role INSERT audit_log"
+done
 
 echo
 echo '   ... regulatory_link_status: only the administrative annexe writes, and'
 echo '   only the four effect columns. The identity of an episode is immutable.'
-for role in allocation_key_svc simulation_key_svc news_board_svc billing_svc notification_dispatch_svc live_data_svc; do
+for role in allocation_key_svc simulation_key_svc news_board_svc billing_svc notification_dispatch_svc live_data_svc signature_svc; do
     pw=$(pw_for "$role")
     # Asked of the catalogue, not attempted: an INSERT of a dummy row would also
     # fail on its foreign keys, and prove nothing about the grant. Division by

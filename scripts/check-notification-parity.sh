@@ -26,7 +26,7 @@ REFERENCE="news-board"
 # so importing the producer-side service/repository would invert the dependency.
 # It still shares the contract because `Channel.INAPP = 1 / EMAIL = 2` is an
 # on-disk encoding, and a second definition of it is a second source of truth.
-PRODUCERS=(billing administrative-document)
+PRODUCERS=(billing administrative-document signature)
 CONSUMERS=(notification-dispatch)
 
 SHARED_FILES=(

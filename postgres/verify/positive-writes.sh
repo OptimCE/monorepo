@@ -39,6 +39,7 @@ pw_for() {
         administrative_document_svc) printf '%s' "$ADMINISTRATIVE_DOCUMENT_DB_PASSWORD" ;;
         notification_dispatch_svc)   printf '%s' "$NOTIFICATION_DISPATCH_DB_PASSWORD" ;;
         live_data_svc)               printf '%s' "$LIVE_DATA_DB_PASSWORD" ;;
+        signature_svc)               printf '%s' "$SIGNATURE_DB_PASSWORD" ;;
         *) printf '' ;;
     esac
 }
@@ -76,7 +77,7 @@ check_as() {
 }
 
 AUDIT_WRITERS='allocation_key_svc simulation_key_svc news_board_svc billing_svc administrative_document_svc live_data_svc'
-NOTIFIERS='news_board_svc billing_svc administrative_document_svc'
+NOTIFIERS='news_board_svc billing_svc administrative_document_svc signature_svc'
 
 # ---------------------------------------------------------------------------
 echo
@@ -95,7 +96,7 @@ done
 
 # ---------------------------------------------------------------------------
 echo
-echo 'notification INSERT + notification_id_seq USAGE — the three producers'
+echo 'notification INSERT + notification_id_seq USAGE — the producers'
 echo '  (id_user is NOT NULL REFERENCES app_user, so it must come from a real'
 echo '   row. The 1/count(*) guard turns "the seed had no users, nothing was'
 echo '   inserted, nothing was proved" into a division-by-zero FAILURE rather'
@@ -113,7 +114,7 @@ done
 
 # ---------------------------------------------------------------------------
 echo
-echo 'outbound_message INSERT + outbound_message_id_seq USAGE — the three producers'
+echo 'outbound_message INSERT + outbound_message_id_seq USAGE — the producers'
 echo '  (gen_random_uuid() keeps the unique index on dedupe_key out of the way.)'
 for role in $NOTIFIERS; do
     check "$role" "$role -> outbound_message" <<'SQL'
@@ -239,6 +240,41 @@ SELECT 1 / count(*)::int FROM meter_data
  WHERE id = (SELECT id FROM picked) AND status = 3 AND end_date = current_date - 1;
 ROLLBACK;
 SQL
+
+# ---------------------------------------------------------------------------
+echo
+echo 'signature_local — signature_svc writes its own evidence log, and the'
+echo '  append-only guard refuses an UPDATE of it, even to its owner (2026-11-03).'
+if out=$(PGPASSWORD="$(pw_for signature_svc)" psql --no-psqlrc -q -v ON_ERROR_STOP=1 \
+    -U signature_svc -d signature_local -f - 2>&1 <<'SQL'
+BEGIN;
+INSERT INTO signature_request
+    (id, id_community, source_service, source_ref, idempotency_key, title, locale,
+     original_key, original_sha256, signing_order, status, consent_version, expires_at)
+VALUES ('00000000-0000-0000-0000-00000000f00d', -1, 'verify', 'verify',
+        'verify-' || gen_random_uuid(), 'verify', 'fr', 'verify', repeat('0', 64), 1, 1, 'v1',
+        now() + interval '1 day');
+INSERT INTO signature_event (request_id, seq, type, at, prev_hash, hash)
+VALUES ('00000000-0000-0000-0000-00000000f00d', 1, 'request.created', now(),
+        repeat('0', 64), repeat('1', 64));
+DO $$
+BEGIN
+    UPDATE signature_event SET ip = 'verify'
+     WHERE request_id = '00000000-0000-0000-0000-00000000f00d';
+    RAISE EXCEPTION 'signature_event accepted an UPDATE';
+EXCEPTION WHEN integrity_constraint_violation THEN
+    NULL;
+END $$;
+ROLLBACK;
+SQL
+); then
+    PASSED=$((PASSED + 1))
+    printf '  ok    signature_svc -> signature_event (insert; update refused)\n'
+else
+    FAILED=$((FAILED + 1))
+    printf '  FAIL  signature_svc -> signature_event\n'
+    printf '%s\n' "$out" | sed 's/^/          /'
+fi
 
 # ---------------------------------------------------------------------------
 echo

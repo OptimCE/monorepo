@@ -40,3 +40,6 @@
 [submodule "dso-lookup"]
 	path = dso-lookup
 	url = ../dso-lookup.git
+[submodule "signature"]
+	path = signature
+	url = ../signature.git

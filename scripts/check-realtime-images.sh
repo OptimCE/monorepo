@@ -56,6 +56,8 @@ PRODUCERS=(
   billing-worker
   administrative-document
   administrative-document-worker
+  signature
+  signature-worker
 )
 
 status=0

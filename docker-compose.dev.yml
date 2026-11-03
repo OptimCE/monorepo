@@ -103,6 +103,7 @@ services:
       - ADMINISTRATIVE_DOCUMENT_DB_PASSWORD=${ADMINISTRATIVE_DOCUMENT_DB_PASSWORD}
       - NOTIFICATION_DISPATCH_DB_PASSWORD=${NOTIFICATION_DISPATCH_DB_PASSWORD}
       - LIVE_DATA_DB_PASSWORD=${LIVE_DATA_DB_PASSWORD}
+      - SIGNATURE_DB_PASSWORD=${SIGNATURE_DB_PASSWORD}
     entrypoint: ["/bin/sh", "/postgres/provision/provision.sh"]
     volumes:
       - ./postgres:/postgres:ro
@@ -128,6 +129,7 @@ services:
       # /health/readiness reads schema_version rather than SELECT 1 so that
       # this fails loudly instead.
       - ./live-data/scripts/sql/schema.sql:/schemas/live_data_local.sql:ro
+      - ./signature/scripts/sql/schema.sql:/schemas/signature_local.sql:ro
       # Whole directory, applied in filename order AFTER the schema and on every
       # run: these are region reference data (deadline rules + the template
       # catalogue), idempotent by construction, and 0003 updates rows 0002
@@ -248,6 +250,7 @@ services:
       mc mb --ignore-existing local/$${OUTPUT_BUCKET:-optimce-documents};
       mc cp --recursive /templates/billing local/$${TEMPLATES_BUCKET:-optimce-templates}/;
       mc cp --recursive /templates-admin/administrative-document local/$${TEMPLATES_BUCKET:-optimce-templates}/;
+      mc cp --recursive /templates-signature/signature local/$${TEMPLATES_BUCKET:-optimce-templates}/;
       exit 0;
       "
     volumes:
@@ -263,6 +266,7 @@ services:
       # instead.
       - ./billing/document-templates:/templates:ro
       - ./administrative-document/document-templates:/templates-admin:ro
+      - ./signature/document-templates:/templates-signature:ro
     networks:
       - backend
 
@@ -565,6 +569,20 @@ services:
   # both targets before writing: ./krakend/config is a gitignored bind mount
   # that is never cleaned, so a half-finished run would otherwise leave a stale
   # live-public.json for krakend-config to merge while printing "Success!".
+  signature-doc-gen:
+    profiles: ["init", "dev"]
+    build:
+      context: signature
+      dockerfile: Dockerfile
+    volumes:
+      - ./krakend/config:/output
+    environment:
+      - ENV=local
+      - CRM_DATABASE_URL=postgresql+asyncpg://placeholder:placeholder@placeholder:5432/placeholder
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://placeholder:placeholder@placeholder:5432/placeholder
+      - ALLOW_ORIGIN=*
+    entrypoint: ["python", "scripts/export_openapi.py", "/output/signature.json"]
+
   live-data-doc-gen:
     profiles: ["init", "dev"]
     build:
@@ -611,6 +629,8 @@ services:
         condition: service_completed_successfully
       live-data-doc-gen:
         condition: service_completed_successfully
+      signature-doc-gen:
+        condition: service_completed_successfully
 
   krakend:
     profiles: ["dev"]
@@ -639,6 +659,8 @@ services:
       administrative-document:
         condition: service_started
       live-data:
+        condition: service_started
+      signature:
         condition: service_started
       keycloak:
         condition: service_started
@@ -1238,6 +1260,143 @@ services:
       document-generation:
         condition: service_started
 
+  # ---- signature (2026-11-03) ------------------------------------------------
+  # In-app electronic signature of platform PDFs: docs/specs/signature.md.
+  # The API never holds the seal; the worker does (the test PKI's in dev).
+  signature:
+    profiles: ["dev"]
+    build:
+      context: signature
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - ENV=local
+      - CRM_DATABASE_URL=postgresql+asyncpg://signature_svc:${SIGNATURE_DB_PASSWORD}@postgres:5432/crm_db
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://signature_svc:${SIGNATURE_DB_PASSWORD}@postgres:5432/signature_local
+      - NATS_URL=nats://nats:4222
+      - ALLOW_ORIGIN=*
+      - CRM_DB_POOL_SIZE=5
+      - CRM_DB_MAX_OVERFLOW=5
+      - LOCAL_DB_POOL_SIZE=5
+      - LOCAL_DB_MAX_OVERFLOW=5
+      - STORAGE_ENDPOINT=${STORAGE_API_URL}
+      - STORAGE_BUCKET=${STORAGE_BUCKET:-crm-files}
+      # Originals are read under the requesting domain's prefix; everything of
+      # a request is written under signature/{community}/{request}/.
+      - OUTPUT_BUCKET=${OUTPUT_BUCKET:-optimce-documents}
+      - TEMPLATES_BUCKET=${TEMPLATES_BUCKET:-optimce-templates}
+      - STORAGE_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - STORAGE_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - STORAGE_REGION=us-east-1
+      - DOCGEN_REQUEST_SUBJECT=docgen.request
+      - DOCGEN_RESULT_SUBJECT=docgen.result.signature
+      - EVIDENCE_TEMPLATE_URI=s3://${TEMPLATES_BUCKET:-optimce-templates}/signature/evidence/v1/
+      - STEP_UP_MAX_AGE_SECONDS=${SIGNATURE_STEP_UP_MAX_AGE_SECONDS:-300}
+      - REALTIME_ENABLED=${REALTIME_ENABLED}
+      - REALTIME_REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
+    ports:
+      - "8009:8000"
+    networks:
+      - backend
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+      nats:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health/readiness', timeout=3).status==200 else 1)\""
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+  signature-worker:
+    profiles: ["dev"]
+    build:
+      context: signature
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    # A seal in flight finishes before the drain (25 s) ends.
+    stop_grace_period: 60s
+    environment:
+      - ENV=local
+      - CRM_DATABASE_URL=postgresql+asyncpg://signature_svc:${SIGNATURE_DB_PASSWORD}@postgres:5432/crm_db
+      - LOCAL_DATABASE_URL=postgresql+asyncpg://signature_svc:${SIGNATURE_DB_PASSWORD}@postgres:5432/signature_local
+      - NATS_URL=nats://nats:4222
+      - ALLOW_ORIGIN=*
+      - CRM_DB_POOL_SIZE=5
+      - CRM_DB_MAX_OVERFLOW=5
+      - LOCAL_DB_POOL_SIZE=5
+      - LOCAL_DB_MAX_OVERFLOW=5
+      - STORAGE_ENDPOINT=${STORAGE_API_URL}
+      - STORAGE_BUCKET=${STORAGE_BUCKET:-crm-files}
+      # Originals are read under the requesting domain's prefix; everything of
+      # a request is written under signature/{community}/{request}/.
+      - OUTPUT_BUCKET=${OUTPUT_BUCKET:-optimce-documents}
+      - TEMPLATES_BUCKET=${TEMPLATES_BUCKET:-optimce-templates}
+      - STORAGE_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - STORAGE_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - STORAGE_REGION=us-east-1
+      - DOCGEN_REQUEST_SUBJECT=docgen.request
+      - DOCGEN_RESULT_SUBJECT=docgen.result.signature
+      - EVIDENCE_TEMPLATE_URI=s3://${TEMPLATES_BUCKET:-optimce-templates}/signature/evidence/v1/
+      - STEP_UP_MAX_AGE_SECONDS=${SIGNATURE_STEP_UP_MAX_AGE_SECONDS:-300}
+      - REALTIME_ENABLED=${REALTIME_ENABLED}
+      - REALTIME_REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
+      # The dev seal: the test PKI writes it into the shared volume. In
+      # production a PKCS#12 secret, readable by this container only.
+      - SEAL_PKCS12_PATH=/pki/seal.p12
+      - SEAL_PKCS12_PASSPHRASE=dev-only
+      - SEAL_TRUST_ROOT_PATHS=/pki/root.cer
+      - TSA_URLS=http://signature-test-pki:9000/optimce-dev/tsa/tsa
+    volumes:
+      - signature-pki:/pki:ro
+    networks:
+      - backend
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+      nats:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      # The API declares the streams this worker consumes.
+      signature:
+        condition: service_started
+      document-generation:
+        condition: service_started
+      signature-test-pki:
+        condition: service_healthy
+
+  # A disposable test CA, the seal's PKCS#12, a TSA, OCSP and CRLs (Certomancer,
+  # signature/devpki). Dev only: production uses a real seal certificate and a
+  # timestamp authority on an EU trusted list.
+  signature-test-pki:
+    profiles: ["dev"]
+    build:
+      context: signature
+      dockerfile: devpki/Dockerfile
+    restart: unless-stopped
+    environment:
+      - DEVPKI_DIR=/pki
+      - DEVPKI_BASE_URL=http://signature-test-pki:9000
+    volumes:
+      - signature-pki:/pki
+    networks:
+      - backend
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "python -c \"import os,sys; sys.exit(0 if os.path.exists('/pki/seal.p12') else 1)\""
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
   billing-worker:
     profiles: ["dev"]
     build:
@@ -1790,6 +1949,9 @@ volumes:
   # In production this volume is BACKED UP: losing dynamic-security.json
   # means re-enrolling the entire fleet by hand, on devices with no keyboard.
   mosquitto_data:
+  # The dev test PKI's keys, seal and root (signature-test-pki writes, the
+  # signature worker reads). Kept so the certificates survive a restart.
+  signature-pki:
 
 networks:
   backend:

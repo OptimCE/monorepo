@@ -37,7 +37,7 @@ REFERENCE="news-board"
 # at-most-once — it must not grow a dependency on a broker it does not need.
 # document-generation is absent too: it is stateless and its terminal state lands
 # in the calling service's worker.
-PRODUCERS=(billing administrative-document allocation-key-generation simulation-key)
+PRODUCERS=(billing administrative-document allocation-key-generation simulation-key signature)
 
 SHARED_FILES=(
   core/realtime/__init__
