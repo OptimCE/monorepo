@@ -35,6 +35,11 @@ services:
   administrative-document:
     swagger: /config/administrative-document.json
     host: administrative-document:8000
+  # The signature annexe (2026-11-03): /api/signature/*. Its sign call needs the
+  # token's auth_time (x-auth-time), see extra-config.json's propagate_claims.
+  signature:
+    swagger: /config/signature.json
+    host: signature:8000
 
   # ---- live-data: ONE service, TWO entries ----------------------------------
   #

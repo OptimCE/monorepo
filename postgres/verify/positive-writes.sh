@@ -39,6 +39,7 @@ pw_for() {
         administrative_document_svc) printf '%s' "$ADMINISTRATIVE_DOCUMENT_DB_PASSWORD" ;;
         notification_dispatch_svc)   printf '%s' "$NOTIFICATION_DISPATCH_DB_PASSWORD" ;;
         live_data_svc)               printf '%s' "$LIVE_DATA_DB_PASSWORD" ;;
+        signature_svc)               printf '%s' "$SIGNATURE_DB_PASSWORD" ;;
         *) printf '' ;;
     esac
 }
@@ -60,8 +61,23 @@ check() {
     fi
 }
 
+# check_as <role> <label> — SQL on stdin, run by the superuser (PGUSER of the
+# verify container) so it can stage what the role cannot write itself, then
+# `SET LOCAL ROLE <role>` for the write under test. Must succeed.
+check_as() {
+    role=$1; label=$2
+    if out=$(psql --no-psqlrc -q -v ON_ERROR_STOP=1 -d crm_db -f - 2>&1); then
+        PASSED=$((PASSED + 1))
+        printf '  ok    %s\n' "$label"
+    else
+        FAILED=$((FAILED + 1))
+        printf '  FAIL  %s\n' "$label"
+        printf '%s\n' "$out" | sed 's/^/          /'
+    fi
+}
+
 AUDIT_WRITERS='allocation_key_svc simulation_key_svc news_board_svc billing_svc administrative_document_svc live_data_svc'
-NOTIFIERS='news_board_svc billing_svc administrative_document_svc'
+NOTIFIERS='news_board_svc billing_svc administrative_document_svc signature_svc'
 
 # ---------------------------------------------------------------------------
 echo
@@ -80,7 +96,7 @@ done
 
 # ---------------------------------------------------------------------------
 echo
-echo 'notification INSERT + notification_id_seq USAGE — the three producers'
+echo 'notification INSERT + notification_id_seq USAGE — the producers'
 echo '  (id_user is NOT NULL REFERENCES app_user, so it must come from a real'
 echo '   row. The 1/count(*) guard turns "the seed had no users, nothing was'
 echo '   inserted, nothing was proved" into a division-by-zero FAILURE rather'
@@ -98,7 +114,7 @@ done
 
 # ---------------------------------------------------------------------------
 echo
-echo 'outbound_message INSERT + outbound_message_id_seq USAGE — the three producers'
+echo 'outbound_message INSERT + outbound_message_id_seq USAGE — the producers'
 echo '  (gen_random_uuid() keeps the unique index on dedupe_key out of the way.)'
 for role in $NOTIFIERS; do
     check "$role" "$role -> outbound_message" <<'SQL'
@@ -160,6 +176,105 @@ VALUES ('verify@example.invalid', 4, 'grant verification')
 ON CONFLICT (email) DO NOTHING;
 ROLLBACK;
 SQL
+
+# ---------------------------------------------------------------------------
+echo
+echo 'regulatory_link_status — administrative_document_svc opens an episode and'
+echo '  moves its effect columns, with the upsert its effects port issues.'
+echo '  (Needs one sharing operation; GENERATED ALWAYS AS IDENTITY, so no sequence'
+echo '   grant is involved. Rolled back: nothing is left behind.)'
+check administrative_document_svc 'administrative_document_svc -> regulatory_link_status' <<'SQL'
+BEGIN;
+WITH op AS (SELECT id, id_community FROM sharing_operation ORDER BY id LIMIT 1)
+INSERT INTO regulatory_link_status
+    (id_community, id_sharing_operation, subject_type, subject_ref, id_dossier_origin, regulatory_status, valid_from)
+SELECT id_community, id, 1, '000000000000000000', -1, 2, current_date FROM op
+ON CONFLICT (id_dossier_origin, subject_type, subject_ref)
+DO UPDATE SET regulatory_status = EXCLUDED.regulatory_status, valid_from = EXCLUDED.valid_from,
+              valid_to = EXCLUDED.valid_to, regulatory_ref = EXCLUDED.regulatory_ref;
+UPDATE regulatory_link_status SET regulatory_status = 5, valid_to = NULL, regulatory_ref = 'OPT--1'
+ WHERE id_dossier_origin = -1;
+SELECT 1 / count(*)::int FROM regulatory_link_status WHERE id_dossier_origin = -1 AND regulatory_status = 5;
+ROLLBACK;
+SQL
+
+echo '  ... and withdraws one (status 9, 2026-10-30): a change cancelled before it'
+echo '  was authorised; the annexe has no DELETE, so the row stays.'
+check administrative_document_svc 'administrative_document_svc -> regulatory_link_status (withdrawn)' <<'SQL'
+BEGIN;
+WITH op AS (SELECT id, id_community FROM sharing_operation ORDER BY id LIMIT 1)
+INSERT INTO regulatory_link_status
+    (id_community, id_sharing_operation, subject_type, subject_ref, id_dossier_origin, regulatory_status)
+SELECT id_community, id, 1, '000000000000000000', -1, 1 FROM op;
+UPDATE regulatory_link_status SET regulatory_status = 9 WHERE id_dossier_origin = -1;
+SELECT 1 / count(*)::int FROM regulatory_link_status WHERE id_dossier_origin = -1 AND regulatory_status = 9;
+ROLLBACK;
+SQL
+
+echo '  ... and its ACTIVE write turns the meter waiting in the CRM active from that'
+echo '  date (2026-11-01, one status per meter): the core trigger is SECURITY'
+echo '  DEFINER, so the role, which cannot write meter_data, still lands it.'
+echo '  (The superuser makes a meter waiting first; rolled back.)'
+check_as administrative_document_svc 'administrative_document_svc -> ACTIVE aligns meter_data' <<'SQL'
+BEGIN;
+CREATE TEMP TABLE picked ON COMMIT DROP AS
+SELECT md.id, md.ean, md.id_sharing_operation, md.id_community
+  FROM meter_data md
+ WHERE md.id_sharing_operation IS NOT NULL AND md.end_date IS NULL
+   AND NOT EXISTS (SELECT 1 FROM regulatory_link_status r
+                    WHERE r.subject_type = 1 AND r.subject_ref = md.ean
+                      AND r.regulatory_status BETWEEN 2 AND 5)
+ ORDER BY md.id LIMIT 1;
+SELECT 1 / count(*)::int FROM picked;
+UPDATE meter_data SET status = 3, start_date = LEAST(start_date, current_date - 1)
+ WHERE id = (SELECT id FROM picked);
+GRANT SELECT ON picked TO administrative_document_svc;
+SET LOCAL ROLE administrative_document_svc;
+INSERT INTO regulatory_link_status
+    (id_community, id_sharing_operation, subject_type, subject_ref, id_dossier_origin, regulatory_status, valid_from)
+SELECT id_community, id_sharing_operation, 1, ean, -1, 5, current_date FROM picked;
+RESET ROLE;
+SELECT 1 / count(*)::int FROM meter_data
+ WHERE ean = (SELECT ean FROM picked) AND status = 1 AND start_date = current_date;
+SELECT 1 / count(*)::int FROM meter_data
+ WHERE id = (SELECT id FROM picked) AND status = 3 AND end_date = current_date - 1;
+ROLLBACK;
+SQL
+
+# ---------------------------------------------------------------------------
+echo
+echo 'signature_local — signature_svc writes its own evidence log, and the'
+echo '  append-only guard refuses an UPDATE of it, even to its owner (2026-11-03).'
+if out=$(PGPASSWORD="$(pw_for signature_svc)" psql --no-psqlrc -q -v ON_ERROR_STOP=1 \
+    -U signature_svc -d signature_local -f - 2>&1 <<'SQL'
+BEGIN;
+INSERT INTO signature_request
+    (id, id_community, source_service, source_ref, idempotency_key, title, locale,
+     original_key, original_sha256, signing_order, status, consent_version, expires_at)
+VALUES ('00000000-0000-0000-0000-00000000f00d', -1, 'verify', 'verify',
+        'verify-' || gen_random_uuid(), 'verify', 'fr', 'verify', repeat('0', 64), 1, 1, 'v1',
+        now() + interval '1 day');
+INSERT INTO signature_event (request_id, seq, type, at, prev_hash, hash)
+VALUES ('00000000-0000-0000-0000-00000000f00d', 1, 'request.created', now(),
+        repeat('0', 64), repeat('1', 64));
+DO $$
+BEGIN
+    UPDATE signature_event SET ip = 'verify'
+     WHERE request_id = '00000000-0000-0000-0000-00000000f00d';
+    RAISE EXCEPTION 'signature_event accepted an UPDATE';
+EXCEPTION WHEN integrity_constraint_violation THEN
+    NULL;
+END $$;
+ROLLBACK;
+SQL
+); then
+    PASSED=$((PASSED + 1))
+    printf '  ok    signature_svc -> signature_event (insert; update refused)\n'
+else
+    FAILED=$((FAILED + 1))
+    printf '  FAIL  signature_svc -> signature_event\n'
+    printf '%s\n' "$out" | sed 's/^/          /'
+fi
 
 # ---------------------------------------------------------------------------
 echo

@@ -32,9 +32,11 @@ Use `docker-stack.sh` to manage the CRM stack:
 ### Docker image
 
 - `crm-backend` - Backend api of the app
+- `crm-outbox-relay` - Same image as `crm-backend`, its own process: publishes the CRM's outbox to NATS (`core.evt.*`), which the administrative-document annexe consumes
 - `crm-frontend` - Angular interface to interact with the api
 - `krakend/swagger2krakend` - Python parser translating yaml openapi file to krakend config file
 - `keycloak/kc-groupid-mapper` - Keycloak + addons to add additional group info to the backend
+- `signature` / `signature-worker` - Electronic signature annexe (API + pyHanko seal worker); `signature-test-pki` is its dev-only test CA, TSA and seal (Certomancer). A step-up check reads the token's `auth_time`, which only a browser login sets (a password-grant token has none)
 
 ### Keycloakify Theme
 

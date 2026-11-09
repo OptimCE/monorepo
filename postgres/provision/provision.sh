@@ -53,7 +53,8 @@ simulation_key_local|simulation_key_svc|simulation_key_local.sql
 news_board_local|news_board_svc|news_board_local.sql
 billing_local|billing_svc|billing_local.sql
 administrative_document_local|administrative_document_svc|administrative_document_local.sql
-live_data_local|live_data_svc|live_data_local.sql'
+live_data_local|live_data_svc|live_data_local.sql
+signature_local|signature_svc|signature_local.sql'
 
 # --- 0. Wait ---------------------------------------------------------------
 # `depends_on: service_healthy` already covers the compose path. This makes
@@ -81,6 +82,7 @@ $PSQL -d postgres \
     -v administrative_document_password="$ADMINISTRATIVE_DOCUMENT_DB_PASSWORD" \
     -v notification_dispatch_password="$NOTIFICATION_DISPATCH_DB_PASSWORD" \
     -v live_data_password="$LIVE_DATA_DB_PASSWORD" \
+    -v signature_password="$SIGNATURE_DB_PASSWORD" \
     -f "$SQL_DIR/00-roles.sql"
 
 # --- 2. Databases + CONNECT ACLs -------------------------------------------

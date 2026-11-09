@@ -37,7 +37,7 @@ REFERENCE="news-board"
 # at-most-once — it must not grow a dependency on a broker it does not need.
 # document-generation is absent too: it is stateless and its terminal state lands
 # in the calling service's worker.
-PRODUCERS=(billing administrative-document allocation-key-generation simulation-key)
+PRODUCERS=(billing administrative-document allocation-key-generation simulation-key signature)
 
 SHARED_FILES=(
   core/realtime/__init__
@@ -89,8 +89,30 @@ for service in "$REFERENCE" "${PRODUCERS[@]}"; do
   fi
 done
 
+# The topic list exists twice more: REALTIME_TOPICS in crm-backend is what the
+# hub forwards, and the frontend's is what a page can listen for. A topic the
+# producers publish and the hub does not know is dropped at the hub, silently:
+# the espace administratif's admin.* hints went nowhere that way until both
+# sides learned them. The frontend may know fewer (session.revoked is never
+# forwarded), never more.
+topics_of() { grep -oE "^ +[A-Z_]+: ['\"][a-z_.]+['\"]" "$1" | grep -oE "[a-z_.]+['\"]$" | tr -d "'\"" | sort; }
+producer_topics=$(sed -n '/^TOPICS: Final/,/^)/p' "$REFERENCE/core/realtime/envelope.py" \
+  | grep -oE '"[a-z_.]+"' | tr -d '"' | sort)
+hub_topics=$(topics_of crm-backend/src/shared/realtime/realtime.topics.ts)
+frontend_topics=$(topics_of crm-frontend/src/app/core/services/realtime/realtime.types.ts)
+if [ "$producer_topics" != "$hub_topics" ]; then
+  echo "TOPIC DRIFT: $REFERENCE envelope.py TOPICS (<) vs crm-backend realtime.topics.ts (>)"
+  diff <(echo "$producer_topics") <(echo "$hub_topics")
+  status=1
+fi
+unknown_to_hub=$(comm -23 <(echo "$frontend_topics") <(echo "$hub_topics"))
+if [ -n "$unknown_to_hub" ]; then
+  echo "FRONTEND TOPIC the hub never forwards: $unknown_to_hub"
+  status=1
+fi
+
 if [ $status -eq 0 ]; then
-  echo "realtime parity: OK (${#SHARED_FILES[@]} files across $((${#PRODUCERS[@]} + 1)) producers)"
+  echo "realtime parity: OK (${#SHARED_FILES[@]} files across $((${#PRODUCERS[@]} + 1)) producers; $(echo "$hub_topics" | wc -l | tr -d ' ') topics)"
 else
   echo
   echo "The shared realtime package has drifted. Fix by making the change in"
