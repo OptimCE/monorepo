@@ -208,7 +208,7 @@ services:
 
   minio:
     profiles: ["dev"]
-    image: pgsty/minio:latest
+    image: pgsty/minio:latest@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372
     command: server /data --console-address ":9001"
     restart: unless-stopped
     environment:
@@ -231,7 +231,7 @@ services:
 
   minio-init:
     profiles: ["dev"]
-    image: pgsty/mc:latest
+    image: pgsty/mc:latest@sha256:b532278b7a3747dbab6fe45eebb40a653efa704e6758e24e9d9ec54fc96c1800
     depends_on:
       minio:
         condition: service_healthy
@@ -272,7 +272,7 @@ services:
 
   nats:
     profiles: ["dev"]
-    image: nats:2.10-alpine
+    image: nats:2.10-alpine@sha256:b83efabe3e7def1e0a4a31ec6e078999bb17c80363f881df35edc70fcb6bb927
     restart: unless-stopped
     command: ["-js", "-m", "8222", "-sd", "/data"]
     ports:
@@ -1829,7 +1829,7 @@ services:
 
   mailpit:
     profiles: ["dev"]
-    image: axllent/mailpit:latest
+    image: axllent/mailpit:latest@sha256:23a2ef85bc50853ab3093645d1d64679afd8887e89da5e48a88940c172591a4e
     restart: unless-stopped
     environment:
       - MP_SMTP_AUTH_ACCEPT_ANY=true
@@ -1847,7 +1847,7 @@ services:
   # 3025 for the e2e run to send from the host; nothing in the stack sends here.
   greenmail:
     profiles: ["dev"]
-    image: greenmail/standalone:2.1.14
+    image: greenmail/standalone:2.1.14@sha256:1ef95a966418cd09b7ea91d504d8c0826bbe7a2f6e679a75c601a831587c1626
     restart: unless-stopped
     environment:
       - GREENMAIL_OPTS=-Dgreenmail.setup.test.smtp -Dgreenmail.setup.test.imap -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.users=demarches:demarches@optimce.local -Dgreenmail.verbose
