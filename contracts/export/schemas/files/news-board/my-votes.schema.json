@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/news-board/my-votes.schema.json",
+  "title": "news-board/my-votes.json item",
+  "description": "User export: an option the requester voted for, with its poll.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "id_community",
+    "community",
+    "id_post",
+    "poll",
+    "id_post_poll",
+    "option_value",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "id_community": {
+      "type": "integer"
+    },
+    "community": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "id_post": {
+      "type": "integer"
+    },
+    "poll": {
+      "type": "string",
+      "description": "The poll's Markdown text."
+    },
+    "id_post_poll": {
+      "type": "integer"
+    },
+    "option_value": {
+      "type": "string"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    }
+  }
+}

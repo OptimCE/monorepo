@@ -39,6 +39,9 @@ Service code lives in the individual repositories, included here as submodules:
 | `document-generation/` | [OptimCE/document-generation](https://github.com/OptimCE/document-generation) | Document generation service (Python) |
 | `news-board/` | [OptimCE/news-board](https://github.com/OptimCE/news-board) | Community news board service (Python) |
 | `notification-dispatch/` | [OptimCE/notification-dispatch](https://github.com/OptimCE/notification-dispatch) | Outbound email delivery worker (Python) |
+| `live-data/` | [OptimCE/live-data](https://github.com/OptimCE/live-data) | Smart-meter telemetry service over MQTT (Python) |
+| `signature/` | [OptimCE/signature](https://github.com/OptimCE/signature) | Electronic signature service (Python) |
+| `dso-lookup/` | [OptimCE/dso-lookup](https://github.com/OptimCE/dso-lookup) | Distribution system operator lookup for Belgian addresses (Python, internal) |
 | `keycloak/kc-groupid-mapper/` | [OptimCE/kc-groupid-mapper](https://github.com/OptimCE/kc-groupid-mapper) | Keycloak mapper adding group information to tokens |
 | `keycloak/optimce-keycloak-theme/` | [OptimCE/optimce-keycloak-theme](https://github.com/OptimCE/optimce-keycloak-theme) | Keycloak login theme (Keycloakify) |
 | `krakend/swagger2krakend/` | [OptimCE/swagger2krakend](https://github.com/OptimCE/swagger2krakend) | OpenAPI → KrakenD configuration generator (Python) |
@@ -51,12 +54,14 @@ configuration that belongs to this repository:
 | `krakend/` | API gateway configuration (generated `krakend.json` and OpenAPI sources) |
 | `keycloak/` | Keycloak image build, realm configuration, and providers |
 | `nginx/` | Reverse proxy configuration and certificates |
+| `contracts/` | The data export's contract: message and file schemas, examples, and the Python kit every service carries a copy of |
 | `postgres/` | Provisioning and verification for the unified database instance — roles, databases, grants ([README](postgres/README.md)) |
 | `mosquitto/` | MQTT broker configuration for Live Data (`mosquitto.conf`) |
+| `minio/` | The data export's storage: bucket lifecycle and the accounts' policies |
+| `nats/` | NATS server configuration |
 | `crm-frontend-config/` | Generated frontend runtime configuration |
 | `reference/` | Shared reference data (e.g. `regulators.json`) |
-| `scripts/` | End-to-end checks against the running dev stack, e.g. `verify-live-ingest.sh` for Live Data |
-| `docs/runbooks/` | Operational procedures, e.g. [the production database consolidation](docs/runbooks/database-consolidation.md) and [Live Data](docs/runbooks/live-data.md) |
+| `scripts/` | End-to-end checks against the running dev stack, e.g. `verify-live-ingest.sh` for Live Data and `verify-export-contract.sh` for the data export, and `check-export-parity.sh`, which compares the copies of the export kit |
 
 ## Architecture
 
@@ -65,6 +70,8 @@ The development stack (`docker-compose.dev.yml`) runs the following services:
 **Applications**
 - **crm-frontend**: Angular user interface
 - **crm-backend**: CRM backend API
+- **crm-outbox-relay**: publishes the CRM's outbox events to NATS
+- **crm-export-worker**: assembles the data exports (GDPR) into ZIP archives
 - **allocation-key-generation** (+ worker): allocation key computation
 - **simulation-key** (+ worker): energy-sharing simulations
 - **administrative-document** (+ worker): regulatory dossiers, CWaPE deadlines
@@ -72,15 +79,20 @@ The development stack (`docker-compose.dev.yml`) runs the following services:
 - **billing** (+ worker): invoicing
 - **live-data** (+ worker, + scheduler): smart-meter telemetry over MQTT —
   device enrolment, ingestion, hourly and daily rollups
+- **signature** (+ worker, + test-pki): electronic signatures, with a disposable
+  certificate and timestamp authority for development
+- **dso-lookup**: distribution system operator of a Belgian address, called by
+  crm-backend only
 - **document-generation**: document generation worker
 - **notification-dispatch**: outbound email delivery worker
 - **optimce-news-board**: community news board
 
 **Databases** (PostgreSQL)
-- **postgres**: one instance, seven logical databases — `crm_db`,
+- **postgres**: one instance, eight logical databases — `crm_db`,
   `allocation_key_local`, `simulation_key_local`, `news_board_local`,
-  `billing_local`, `administrative_document_local`, `live_data_local` — each
-  owned by its own login role. See [postgres/README.md](postgres/README.md).
+  `billing_local`, `administrative_document_local`, `live_data_local`,
+  `signature_local` — each owned by its own login role. See
+  [postgres/README.md](postgres/README.md).
 - **keycloak-db**: a separate instance; Keycloak manages its own schema.
 
 **Platform**
@@ -92,12 +104,17 @@ The development stack (`docker-compose.dev.yml`) runs the following services:
 - **mosquitto** (+ mosquitto-init, mosquitto-roles): MQTT broker for Live Data
   telemetry, with the dynamic-security plugin; the two run-once containers
   create its security file before it starts and its roles once it is up
+- **redis**: realtime events between the services and the app
+- **best-address**: Belgian address lookup (BeST)
+- **mailpit**, **greenmail**: development mail — outgoing mail catcher and test
+  mailbox (IMAP + SMTP)
 - **jaeger**: distributed tracing (OpenTelemetry)
 
 **Configuration generation** (`init` profile, run-once containers)
 - **swagger-doc-gen**, **generation-doc-gen**, **simulation-doc-gen**,
   **news-doc-gen**, **billing-doc-gen**, **administrative-document-doc-gen**,
-  **live-data-doc-gen**: collect each service's OpenAPI specification
+  **live-data-doc-gen**, **signature-doc-gen**: collect each service's OpenAPI
+  specification
 - **krakend-config**, **keycloak-config**, **nginx-config**,
   **crm-frontend-config**: render the gateway, auth, proxy, and frontend
   configuration from templates
@@ -316,6 +333,7 @@ startup.
 | Service | Host Port | Container Port | Protocol | Usage |
 |---|---:|---:|---|---|
 | `mosquitto` | `127.0.0.1:1883` | `1883` | `tcp` | MQTT broker (Live Data), plaintext — loopback only |
+| `greenmail` | `3025` | `3025` | `tcp` | Dev test mailbox (SMTP) |
 | `allocation-key-generation` | `8002` | `8000` | `tcp` | Allocation key API |
 | `simulation-key` | `8003` | `8000` | `tcp` | Simulation API |
 | `optimce-news-board` | `8004` | `8000` | `tcp` | News board API |
@@ -323,7 +341,8 @@ startup.
 | `administrative-document` | `8006` | `8000` | `tcp` | Administrative document API |
 | `mailpit` | `8007` | `8025` | `tcp` | Dev mail catcher (web UI) |
 | `live-data` | `8008` | `8000` | `tcp` | Live Data API |
-| `postgres` | `8080` | `5432` | `tcp` | PostgreSQL — seven logical databases (crm_db, billing_local, …) |
+| `signature` | `8009` | `8000` | `tcp` | Signature API |
+| `postgres` | `8080` | `5432` | `tcp` | PostgreSQL — eight logical databases (crm_db, billing_local, …) |
 | `keycloak-db` | `8081` | `5432` | `tcp` | PostgreSQL Keycloak |
 | `keycloak` | `8082` | `8080` | `tcp` | Keycloak Authentication |
 | `jaeger` | `8084` | `6831` | `udp` | Jaeger Collector |
@@ -331,12 +350,15 @@ startup.
 | `krakend` | `8086` | `8080` | `tcp` | API Gateway |
 | `reverse-proxy` | `8087` | `80` | `tcp` | HTTP reverse proxy |
 | `reverse-proxy` | `8088` | `443` | `tcp` | HTTPS reverse proxy |
-| `crm-backend` | `8089` | `80` | `tcp` | Backend API |
+| `crm-backend` | `127.0.0.1:8089` | `80` | `tcp` | Backend API — loopback only |
 | `crm-frontend` | `8090` | `80` | `tcp` | Frontend interface |
 | `minio` | `8091` | `9000` | `tcp` | MinIO API |
 | `minio` | `8092` | `9001` | `tcp` | MinIO Console |
+| `redis` | `127.0.0.1:8093` | `6379` | `tcp` | Redis (realtime) — loopback only |
 | `nats` | `8094` | `4222` | `tcp` | NATS client |
 | `nats` | `8095` | `8222` | `tcp` | NATS monitoring |
+| `best-address` | `127.0.0.1:8096` | `8080` | `tcp` | BeST address API — loopback only |
+| `dso-lookup` | `127.0.0.1:8097` | `8000` | `tcp` | DSO lookup API — loopback only |
 
 `mosquitto` is published on the host **loopback only** (`127.0.0.1:1883`): the
 dev listener is plaintext, and a bare `1883:1883` would bind every interface and

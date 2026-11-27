@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/common.schema.json",
+  "title": "OptimCE export — shared definitions",
+  "description": "Definitions shared by every export message and by the archive manifest. Identifiers only: no personal data ever travels in a message.",
+  "$defs": {
+    "schemaVersion": {
+      "description": "Contract version, MAJOR.MINOR. A consumer accepts any minor of its major and rejects another major.",
+      "type": "string",
+      "pattern": "^1\\.[0-9]+$"
+    },
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "externalId": {
+      "description": "A Keycloak identifier: the user's `sub` (crm `app_user.auth_user_id`) or the community's group id (crm `community.auth_community_id`). Not always a UUID (the test seeds use `auth0|admin`, `2`).",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[^\\x00-\\x1f\\s]+$"
+    },
+    "dateTime": {
+      "description": "ISO 8601, UTC, with an explicit Z.",
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "service": {
+      "description": "A name from EXPORT_SERVICES. It is also the service's folder at the root of the archive.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,62}$"
+    },
+    "attempt": {
+      "description": "Publication number of this part's request, starting at 1. A response echoes the attempt it answers.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id"],
+      "properties": {
+        "type": { "enum": ["user", "community"] },
+        "id": { "$ref": "#/$defs/externalId" }
+      }
+    },
+    "requester": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["userId"],
+      "properties": {
+        "userId": { "$ref": "#/$defs/externalId" }
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "archivePath": {
+      "description": "Relative POSIX path inside the archive: no leading slash, no `.` or `..` segment, no backslash, no control character.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))[^\\\\\\x00-\\x1f]+$"
+    },
+    "partKey": {
+      "description": "Object key of a part file in the `exports` bucket.",
+      "type": "string",
+      "maxLength": 1024,
+      "pattern": "^parts/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[a-z][a-z0-9-]{1,62}/[^\\x00-\\x1f]+$"
+    },
+    "bucket": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$"
+    },
+    "contentType": {
+      "type": "string",
+      "pattern": "^[a-z]+/[A-Za-z0-9.+-]+(;\\s*charset=[A-Za-z0-9-]+)?$"
+    },
+    "partFile": {
+      "description": "A file the service wrote under its prefix of the `exports` bucket.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "key", "size", "sha256", "contentType"],
+      "properties": {
+        "path": { "$ref": "#/$defs/archivePath" },
+        "key": { "$ref": "#/$defs/partKey" },
+        "size": { "type": "integer", "minimum": 0 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "contentType": { "$ref": "#/$defs/contentType" }
+      }
+    },
+    "reference": {
+      "description": "A file already stored in MinIO, copied by the worker into the archive instead of being duplicated by the service. `size` and `sha256` are optional: when given, the worker checks them while copying; it always records what it read in the manifest.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bucket", "key", "targetPath"],
+      "properties": {
+        "bucket": { "$ref": "#/$defs/bucket" },
+        "key": { "type": "string", "minLength": 1, "maxLength": 1024, "pattern": "^[^\\x00-\\x1f]+$" },
+        "targetPath": { "$ref": "#/$defs/archivePath" },
+        "size": { "type": "integer", "minimum": 0 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "contentType": { "$ref": "#/$defs/contentType" }
+      }
+    },
+    "summaryItem": {
+      "description": "A counter shown in index.html. `labelKey` is an i18n key rendered by the worker in the requester's language.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["labelKey", "count"],
+      "properties": {
+        "labelKey": { "type": "string", "pattern": "^export\\.[a-z0-9-]+\\.[a-z0-9_.-]+$" },
+        "count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "omittedItem": {
+      "description": "Something deliberately left out, so the archive says so instead of being silently partial.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["what", "reason"],
+      "properties": {
+        "what": { "type": "string", "pattern": "^[a-z0-9-]+\\.[a-z0-9_.-]+$" },
+        "reason": { "enum": ["below_threshold", "consent_missing"] }
+      }
+    }
+  }
+}

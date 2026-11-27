@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/live-data/consents.schema.json",
+  "title": "live-data/consents.json item",
+  "description": "Community export: every consent decision recorded in the community, with its journal.",
+  "$ref": "common.schema.json#/$defs/consent"
+}

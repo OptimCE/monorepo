@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/administrative-document/member-pieces.schema.json",
+  "title": "administrative-document/member-pieces.json item",
+  "description": "User export: a piece addressed to one of the requester's members (an annex 8...), with the file of its current version once FINAL.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id_community",
+    "community",
+    "id_member",
+    "dossier",
+    "document",
+    "version",
+    "file"
+  ],
+  "properties": {
+    "id_community": {
+      "type": "integer"
+    },
+    "community": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "id_member": {
+      "type": "integer"
+    },
+    "dossier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "status",
+        "family",
+        "step",
+        "title",
+        "external_ref",
+        "submitted_at"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        "family": {
+          "type": "string"
+        },
+        "step": {
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "external_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "submitted_at": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "doc_type",
+        "status",
+        "title"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "doc_type": {
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "version": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "version_no",
+            "stage",
+            "content_sha256",
+            "created_at"
+          ],
+          "properties": {
+            "id": {
+              "type": "integer"
+            },
+            "version_no": {
+              "type": "integer"
+            },
+            "stage": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "content_sha256": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "created_at": {
+              "$ref": "common.schema.json#/$defs/timestamp"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "file": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/fileRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

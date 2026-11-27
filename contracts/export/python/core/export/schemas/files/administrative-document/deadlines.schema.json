@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/administrative-document/deadlines.schema.json",
+  "title": "administrative-document/deadlines.json item",
+  "description": "Community export: one `deadline` row of the community, as stored (minus `id_community`, the scope), codes by name.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "id_dossier",
+    "deadline_type",
+    "due_date",
+    "status",
+    "recurring",
+    "derived_from_event_id",
+    "id_deadline_rule",
+    "resolved_at",
+    "reminded_at",
+    "reminders_sent",
+    "party",
+    "kind",
+    "derived_from_correspondence_id",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "id_dossier": {
+      "type": "integer"
+    },
+    "deadline_type": {
+      "type": "string"
+    },
+    "due_date": {
+      "$ref": "common.schema.json#/$defs/date"
+    },
+    "status": {
+      "anyOf": [
+        {
+          "enum": [
+            "OPEN",
+            "MET",
+            "MISSED",
+            "CANCELLED"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "DeadlineStatus by name (a retired code keeps its number)."
+    },
+    "recurring": {
+      "type": "boolean"
+    },
+    "derived_from_event_id": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "id_deadline_rule": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "resolved_at": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reminded_at": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reminders_sent": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      }
+    },
+    "party": {
+      "anyOf": [
+        {
+          "enum": [
+            "COMMUNITY",
+            "GRD",
+            "REGULATOR"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "DeadlineParty by name (a retired code keeps its number)."
+    },
+    "kind": {
+      "anyOf": [
+        {
+          "enum": [
+            "SUBMISSION",
+            "RESPONSE",
+            "LAPSE",
+            "EFFECT"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "DeadlineKind by name (a retired code keeps its number)."
+    },
+    "derived_from_correspondence_id": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    }
+  }
+}

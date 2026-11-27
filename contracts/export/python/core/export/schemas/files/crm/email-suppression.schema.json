@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/crm/email-suppression.schema.json",
+  "title": "crm/email-suppression.json item",
+  "description": "User export: the block on the user's address, if the mail provider reported one.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "email",
+    "reason",
+    "detail",
+    "created_at"
+  ],
+  "properties": {
+    "email": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "integer"
+    },
+    "detail": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    }
+  }
+}

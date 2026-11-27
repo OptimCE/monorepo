@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/export-job-requested.schema.json",
+  "title": "export.job.requested",
+  "description": "crm-backend (API) → worker. A new export_job was committed in `pending`. The worker reads everything else from export_job / export_part.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "exportId"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "exportId": { "$ref": "common.schema.json#/$defs/uuid" }
+  }
+}

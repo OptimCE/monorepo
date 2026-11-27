@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/administrative-document/document-versions.schema.json",
+  "title": "administrative-document/document-versions.json item",
+  "description": "Community export: one `document_version` row of the community, as stored (minus `id_community`, the scope), codes by name.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "id_document",
+    "version_no",
+    "content_sha256",
+    "content_type",
+    "byte_size",
+    "original_filename",
+    "id_template",
+    "data_snapshot_json",
+    "generated_by",
+    "docgen_request_id",
+    "stage",
+    "watermark",
+    "prefill_json",
+    "template_version",
+    "renderer_json",
+    "created_at",
+    "immutable_from",
+    "file"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "id_document": {
+      "type": "integer"
+    },
+    "version_no": {
+      "type": "integer"
+    },
+    "content_sha256": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "content_type": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "byte_size": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "original_filename": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "id_template": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "data_snapshot_json": {
+      "$ref": "common.schema.json#/$defs/json"
+    },
+    "generated_by": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "docgen_request_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "stage": {
+      "anyOf": [
+        {
+          "enum": [
+            "DRAFT",
+            "FINAL",
+            "TO_SIGN"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "VersionStage by name (a retired code keeps its number)."
+    },
+    "watermark": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "prefill_json": {
+      "$ref": "common.schema.json#/$defs/json"
+    },
+    "template_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "renderer_json": {
+      "$ref": "common.schema.json#/$defs/json"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "immutable_from": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "file": {
+      "$ref": "common.schema.json#/$defs/fileRef"
+    }
+  }
+}

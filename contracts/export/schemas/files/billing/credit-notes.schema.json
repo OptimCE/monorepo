@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/billing/credit-notes.schema.json",
+  "title": "billing/credit-notes.json item",
+  "description": "Community export: one `credit_note` row of the community, as stored (minus `id_community`, the scope), codes by name, amounts as text.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "id_original_invoice",
+    "id_credit_invoice",
+    "reason",
+    "created_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "id_original_invoice": {
+      "type": "integer"
+    },
+    "id_credit_invoice": {
+      "type": "integer"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    }
+  }
+}

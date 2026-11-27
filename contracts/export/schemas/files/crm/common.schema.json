@@ -1,0 +1,634 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/crm/common.schema.json",
+  "title": "Shared definitions of the crm part's files",
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "timestampOrNull": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "dateOrNull": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/date"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "stringOrNull": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "integerOrNull": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "numberOrNull": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "booleanOrNull": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "refOrNull": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "operationRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "integer"
+        }
+      }
+    },
+    "role": {
+      "enum": [
+        "ADMIN",
+        "MANAGER",
+        "MEMBER"
+      ]
+    },
+    "address": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "street",
+        "number",
+        "supplement",
+        "postcode",
+        "city",
+        "country",
+        "best_address_id",
+        "latitude",
+        "longitude",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "street": {
+          "type": "string"
+        },
+        "number": {
+          "type": "string"
+        },
+        "supplement": {
+          "$ref": "common.schema.json#/$defs/stringOrNull"
+        },
+        "postcode": {
+          "type": "string"
+        },
+        "city": {
+          "type": "string"
+        },
+        "country": {
+          "type": "string"
+        },
+        "best_address_id": {
+          "$ref": "common.schema.json#/$defs/stringOrNull"
+        },
+        "latitude": {
+          "$ref": "common.schema.json#/$defs/numberOrNull"
+        },
+        "longitude": {
+          "$ref": "common.schema.json#/$defs/numberOrNull"
+        },
+        "created_at": {
+          "$ref": "common.schema.json#/$defs/timestampOrNull"
+        },
+        "updated_at": {
+          "$ref": "common.schema.json#/$defs/timestampOrNull"
+        }
+      }
+    },
+    "addressOrNull": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/address"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "manager": {
+      "description": "The member's manager (legal representative or guardian).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "surname",
+        "nrn",
+        "email",
+        "phone_number"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "surname": {
+          "type": "string"
+        },
+        "nrn": {
+          "$ref": "common.schema.json#/$defs/stringOrNull"
+        },
+        "email": {
+          "$ref": "common.schema.json#/$defs/stringOrNull"
+        },
+        "phone_number": {
+          "$ref": "common.schema.json#/$defs/stringOrNull"
+        }
+      }
+    },
+    "managerOrNull": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/manager"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "member": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "community",
+        "name",
+        "member_type",
+        "status",
+        "iban",
+        "home_address",
+        "billing_address",
+        "individual",
+        "company",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "community": {
+          "$ref": "common.schema.json#/$defs/refOrNull"
+        },
+        "name": {
+          "type": "string"
+        },
+        "member_type": {
+          "description": "1 individual, 2 company",
+          "type": "integer"
+        },
+        "status": {
+          "description": "1 active, 2 inactive, 3 pending",
+          "type": "integer"
+        },
+        "iban": {
+          "$ref": "common.schema.json#/$defs/stringOrNull"
+        },
+        "home_address": {
+          "$ref": "common.schema.json#/$defs/addressOrNull"
+        },
+        "billing_address": {
+          "$ref": "common.schema.json#/$defs/addressOrNull"
+        },
+        "individual": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "first_name",
+                "nrn",
+                "email",
+                "phone_number",
+                "social_rate",
+                "manager"
+              ],
+              "properties": {
+                "first_name": {
+                  "type": "string"
+                },
+                "nrn": {
+                  "$ref": "common.schema.json#/$defs/stringOrNull"
+                },
+                "email": {
+                  "$ref": "common.schema.json#/$defs/stringOrNull"
+                },
+                "phone_number": {
+                  "$ref": "common.schema.json#/$defs/stringOrNull"
+                },
+                "social_rate": {
+                  "$ref": "common.schema.json#/$defs/booleanOrNull"
+                },
+                "manager": {
+                  "$ref": "common.schema.json#/$defs/managerOrNull"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "company": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "vat_number",
+                "manager"
+              ],
+              "properties": {
+                "vat_number": {
+                  "$ref": "common.schema.json#/$defs/stringOrNull"
+                },
+                "manager": {
+                  "$ref": "common.schema.json#/$defs/managerOrNull"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "$ref": "common.schema.json#/$defs/timestampOrNull"
+        },
+        "updated_at": {
+          "$ref": "common.schema.json#/$defs/timestampOrNull"
+        }
+      }
+    },
+    "meterData": {
+      "description": "One period of a meter: who held it, on which operation, with which settings.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "start_date",
+        "end_date",
+        "status",
+        "description",
+        "sampling_power",
+        "amperage",
+        "rate",
+        "client_type",
+        "injection_status",
+        "production_chain",
+        "total_generating_capacity",
+        "grd",
+        "grd_source",
+        "member",
+        "sharing_operation",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "start_date": {
+          "$ref": "common.schema.json#/$defs/dateOrNull"
+        },
+        "end_date": {
+          "$ref": "common.schema.json#/$defs/dateOrNull"
+        },
+        "status": {
+          "type": "integer"
+        },
+        "description": {
+          "$ref": "common.schema.json#/$defs/stringOrNull"
+        },
+        "sampling_power": {
+          "$ref": "common.schema.json#/$defs/numberOrNull"
+        },
+        "amperage": {
+          "$ref": "common.schema.json#/$defs/numberOrNull"
+        },
+        "rate": {
+          "type": "integer"
+        },
+        "client_type": {
+          "type": "integer"
+        },
+        "injection_status": {
+          "$ref": "common.schema.json#/$defs/integerOrNull"
+        },
+        "production_chain": {
+          "$ref": "common.schema.json#/$defs/integerOrNull"
+        },
+        "total_generating_capacity": {
+          "$ref": "common.schema.json#/$defs/numberOrNull"
+        },
+        "grd": {
+          "$ref": "common.schema.json#/$defs/stringOrNull"
+        },
+        "grd_source": {
+          "$ref": "common.schema.json#/$defs/stringOrNull"
+        },
+        "member": {
+          "$ref": "common.schema.json#/$defs/refOrNull"
+        },
+        "sharing_operation": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/operationRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "$ref": "common.schema.json#/$defs/timestampOrNull"
+        },
+        "updated_at": {
+          "$ref": "common.schema.json#/$defs/timestampOrNull"
+        }
+      }
+    },
+    "meter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ean",
+        "meter_number",
+        "community",
+        "tarif_group",
+        "phases_number",
+        "reading_frequency",
+        "address",
+        "history",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "ean": {
+          "type": "string",
+          "pattern": "^[0-9]{1,18}$"
+        },
+        "meter_number": {
+          "$ref": "common.schema.json#/$defs/stringOrNull"
+        },
+        "community": {
+          "$ref": "common.schema.json#/$defs/refOrNull"
+        },
+        "tarif_group": {
+          "type": "integer"
+        },
+        "phases_number": {
+          "$ref": "common.schema.json#/$defs/integerOrNull"
+        },
+        "reading_frequency": {
+          "type": "integer"
+        },
+        "address": {
+          "$ref": "common.schema.json#/$defs/addressOrNull"
+        },
+        "history": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/meterData"
+          }
+        },
+        "created_at": {
+          "$ref": "common.schema.json#/$defs/timestampOrNull"
+        },
+        "updated_at": {
+          "$ref": "common.schema.json#/$defs/timestampOrNull"
+        }
+      }
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "community",
+        "member",
+        "file_name",
+        "file_type",
+        "file_size",
+        "upload_date",
+        "file",
+        "file_missing",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "community": {
+          "$ref": "common.schema.json#/$defs/refOrNull"
+        },
+        "member": {
+          "$ref": "common.schema.json#/$defs/refOrNull"
+        },
+        "file_name": {
+          "type": "string"
+        },
+        "file_type": {
+          "$ref": "common.schema.json#/$defs/stringOrNull"
+        },
+        "file_size": {
+          "$ref": "common.schema.json#/$defs/numberOrNull"
+        },
+        "upload_date": {
+          "$ref": "common.schema.json#/$defs/dateOrNull"
+        },
+        "file": {
+          "description": "The file's path in the archive; null when it is missing from storage",
+          "$ref": "common.schema.json#/$defs/stringOrNull"
+        },
+        "file_missing": {
+          "type": "boolean"
+        },
+        "created_at": {
+          "$ref": "common.schema.json#/$defs/timestampOrNull"
+        },
+        "updated_at": {
+          "$ref": "common.schema.json#/$defs/timestampOrNull"
+        }
+      }
+    },
+    "invitation": {
+      "description": "An invitation not answered yet (answered ones are deleted).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id",
+        "community",
+        "member",
+        "member_name",
+        "email",
+        "created_at"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "member",
+            "manager"
+          ]
+        },
+        "id": {
+          "type": "integer"
+        },
+        "community": {
+          "$ref": "common.schema.json#/$defs/refOrNull"
+        },
+        "member": {
+          "$ref": "common.schema.json#/$defs/refOrNull"
+        },
+        "member_name": {
+          "$ref": "common.schema.json#/$defs/stringOrNull"
+        },
+        "email": {
+          "type": "string"
+        },
+        "created_at": {
+          "$ref": "common.schema.json#/$defs/timestampOrNull"
+        }
+      }
+    },
+    "activity": {
+      "description": "One audit log entry (action codes: crm-backend audit-log.actions.ts and the annexes' registries).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "timestamp",
+        "action",
+        "source",
+        "entity_type",
+        "entity_id",
+        "community_id",
+        "user_id",
+        "user_email",
+        "payload"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "timestamp": {
+          "$ref": "common.schema.json#/$defs/timestamp"
+        },
+        "action": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "entity_type": {
+          "type": "string"
+        },
+        "entity_id": {
+          "$ref": "common.schema.json#/$defs/stringOrNull"
+        },
+        "community_id": {
+          "$ref": "common.schema.json#/$defs/integerOrNull"
+        },
+        "user_id": {
+          "$ref": "common.schema.json#/$defs/integerOrNull"
+        },
+        "user_email": {
+          "$ref": "common.schema.json#/$defs/stringOrNull"
+        },
+        "payload": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

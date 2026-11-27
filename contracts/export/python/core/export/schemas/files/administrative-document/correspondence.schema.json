@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/administrative-document/correspondence.schema.json",
+  "title": "administrative-document/correspondence.json item",
+  "description": "Community export: one `correspondence` row of the community, as stored (minus `id_community`, the scope), codes by name.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "id_dossier",
+    "direction",
+    "counterparty",
+    "channel",
+    "type",
+    "occurred_at",
+    "subject",
+    "body_text",
+    "external_ref",
+    "content_sha256",
+    "content_type",
+    "byte_size",
+    "original_filename",
+    "context_json",
+    "recorded_by",
+    "created_at",
+    "file"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "id_dossier": {
+      "type": "integer"
+    },
+    "direction": {
+      "anyOf": [
+        {
+          "enum": [
+            "OUTBOUND",
+            "INBOUND"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "CorrespondenceDirection by name (a retired code keeps its number)."
+    },
+    "counterparty": {
+      "anyOf": [
+        {
+          "enum": [
+            "GRD",
+            "REGULATOR",
+            "PARTICIPANT",
+            "OTHER"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "Counterparty by name (a retired code keeps its number)."
+    },
+    "channel": {
+      "anyOf": [
+        {
+          "enum": [
+            "EMAIL",
+            "ONLINE_FORM",
+            "POST",
+            "UPLOAD"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "Channel by name (a retired code keeps its number)."
+    },
+    "type": {
+      "type": "string"
+    },
+    "occurred_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "subject": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "body_text": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "external_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "content_sha256": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "content_type": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "byte_size": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "original_filename": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "context_json": {
+      "$ref": "common.schema.json#/$defs/json"
+    },
+    "recorded_by": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "file": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/fileRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

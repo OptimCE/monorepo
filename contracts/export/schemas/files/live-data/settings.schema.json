@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/live-data/settings.schema.json",
+  "title": "live-data/settings.json item",
+  "description": "Community export: the visibility settings in force (the defaults when never saved) and the k every aggregate of this export was judged with.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "members_see_production",
+    "members_see_aggregate",
+    "k",
+    "is_default"
+  ],
+  "properties": {
+    "members_see_production": {
+      "type": "boolean"
+    },
+    "members_see_aggregate": {
+      "type": "boolean"
+    },
+    "k": {
+      "type": "integer",
+      "minimum": 3
+    },
+    "is_default": {
+      "type": "boolean"
+    }
+  }
+}

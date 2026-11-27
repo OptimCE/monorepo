@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/signature/common.schema.json",
+  "title": "Shared definitions of the signature part's files",
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "timestampOrNull": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "uuidOrNull": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "sha256OrNull": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/sha256"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "stringOrNull": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "integerOrNull": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "objectOrNull": {
+      "anyOf": [
+        {
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "requestStatus": {
+      "enum": [
+        "PREPARING",
+        "OPEN",
+        "COMPLETING",
+        "COMPLETED",
+        "DECLINED",
+        "CANCELLED",
+        "EXPIRED",
+        "FAILED"
+      ]
+    },
+    "signerStatus": {
+      "enum": [
+        "WAITING",
+        "INVITED",
+        "VIEWED",
+        "SIGNING",
+        "SIGNED",
+        "DECLINED"
+      ]
+    },
+    "fileRef": {
+      "description": "A file of a completed request. `path` is its place in the archive, null when its object is missing from storage (`file_missing`). `sha256` is the one the service recorded.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "file_missing"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "common.schema.json#/$defs/stringOrNull"
+        },
+        "sha256": {
+          "$ref": "common.schema.json#/$defs/sha256OrNull"
+        },
+        "file_missing": {
+          "type": "boolean"
+        }
+      }
+    },
+    "fileRefOrNull": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/fileRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/live-data/operation-days.schema.json",
+  "title": "live-data/operation-days.json item",
+  "description": "Community export: one Brussels day of one sharing operation, judged on its own k.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id_sharing_operation",
+    "operation",
+    "day",
+    "production_wh",
+    "n_devices",
+    "n_hours",
+    "grid"
+  ],
+  "properties": {
+    "id_sharing_operation": {
+      "type": "integer"
+    },
+    "operation": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "day": {
+      "$ref": "common.schema.json#/$defs/day"
+    },
+    "production_wh": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "description": "Wh; null when not measured (or not a finite number)."
+    },
+    "n_devices": {
+      "type": "integer"
+    },
+    "n_hours": {
+      "type": "integer"
+    },
+    "import_wh": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "description": "Wh; null when not measured (or not a finite number)."
+    },
+    "export_wh": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "description": "Wh; null when not measured (or not a finite number)."
+    },
+    "shared_wh": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "description": "Wh; null when not measured (or not a finite number)."
+    },
+    "grid": {
+      "$ref": "common.schema.json#/$defs/grid"
+    }
+  }
+}

@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/crm/allocation-shares.schema.json",
+  "title": "crm/allocation-shares.json item",
+  "description": "User export: the share of one of the user's meters in the allocation key in force on `at` (/me/allocation-shares). Only the user's own members.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "at",
+    "community",
+    "sharing_operation",
+    "ean",
+    "member",
+    "holding_start_date",
+    "holding_end_date",
+    "key",
+    "matched",
+    "match_basis",
+    "is_prorata",
+    "effective_share",
+    "iterations"
+  ],
+  "properties": {
+    "at": {
+      "$ref": "common.schema.json#/$defs/date"
+    },
+    "community": {
+      "$ref": "common.schema.json#/$defs/refOrNull"
+    },
+    "sharing_operation": {
+      "$ref": "common.schema.json#/$defs/operationRef"
+    },
+    "ean": {
+      "type": "string"
+    },
+    "member": {
+      "$ref": "common.schema.json#/$defs/ref"
+    },
+    "holding_start_date": {
+      "$ref": "common.schema.json#/$defs/date"
+    },
+    "holding_end_date": {
+      "$ref": "common.schema.json#/$defs/dateOrNull"
+    },
+    "key": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "name",
+            "start_date",
+            "end_date"
+          ],
+          "properties": {
+            "id": {
+              "type": "integer"
+            },
+            "name": {
+              "type": "string"
+            },
+            "start_date": {
+              "$ref": "common.schema.json#/$defs/date"
+            },
+            "end_date": {
+              "$ref": "common.schema.json#/$defs/dateOrNull"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "matched": {
+      "type": "boolean"
+    },
+    "match_basis": {
+      "enum": [
+        "ean_consumer_name",
+        null
+      ]
+    },
+    "is_prorata": {
+      "type": "boolean"
+    },
+    "effective_share": {
+      "$ref": "common.schema.json#/$defs/numberOrNull"
+    },
+    "iterations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "iteration_id",
+          "iteration_number",
+          "iteration_share",
+          "consumer_share",
+          "is_prorata",
+          "contribution"
+        ],
+        "properties": {
+          "iteration_id": {
+            "type": "integer"
+          },
+          "iteration_number": {
+            "type": "integer"
+          },
+          "iteration_share": {
+            "type": "number"
+          },
+          "consumer_share": {
+            "$ref": "common.schema.json#/$defs/numberOrNull"
+          },
+          "is_prorata": {
+            "type": "boolean"
+          },
+          "contribution": {
+            "$ref": "common.schema.json#/$defs/numberOrNull"
+          }
+        }
+      }
+    }
+  }
+}

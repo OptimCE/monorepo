@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/signature/events.schema.json",
+  "title": "signature/events.json item",
+  "description": "One row of a request's evidence log, as its hash chain covers it. In a user export, only the rows of the requester's slots and of the request itself, and the details of anyone else's action (who, network, session) are null with `identity_withheld`.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "seq",
+    "signer_id",
+    "type",
+    "at",
+    "actor_sub",
+    "actor_user_id",
+    "ip",
+    "user_agent",
+    "keycloak_sid",
+    "auth_time",
+    "acr",
+    "document_sha256",
+    "consent_version",
+    "payload",
+    "prev_hash",
+    "hash",
+    "identity_withheld"
+  ],
+  "properties": {
+    "request_id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "seq": {
+      "type": "integer"
+    },
+    "signer_id": {
+      "$ref": "common.schema.json#/$defs/uuidOrNull"
+    },
+    "type": {
+      "type": "string"
+    },
+    "at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "actor_sub": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "actor_user_id": {
+      "$ref": "common.schema.json#/$defs/integerOrNull"
+    },
+    "ip": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "user_agent": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "keycloak_sid": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "auth_time": {
+      "$ref": "common.schema.json#/$defs/timestampOrNull"
+    },
+    "acr": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "document_sha256": {
+      "$ref": "common.schema.json#/$defs/sha256OrNull"
+    },
+    "consent_version": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "payload": {
+      "type": "object"
+    },
+    "prev_hash": {
+      "$ref": "common.schema.json#/$defs/sha256"
+    },
+    "hash": {
+      "$ref": "common.schema.json#/$defs/sha256"
+    },
+    "identity_withheld": {
+      "type": "boolean"
+    }
+  }
+}

@@ -9,5 +9,8 @@ nginx/conf.d/default.conf
 # *-doc-gen one-shots. Everything authored by hand in this directory is .yaml.
 krakend/config/*.json
 
+# Provider jars built locally: keycloak/Dockerfile builds its own.
+keycloak/providers/
+
 # Per-machine agent state (session locks, worktrees, local permission lists).
 .claude/

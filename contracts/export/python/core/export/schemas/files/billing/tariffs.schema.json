@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/billing/tariffs.schema.json",
+  "title": "billing/tariffs.json item",
+  "description": "Community export: one `tariff` row of the community, as stored (minus `id_community`, the scope), codes by name, amounts as text.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "id_sharing_operation",
+    "kind",
+    "scope",
+    "scope_segment",
+    "scope_ean",
+    "price_per_kwh",
+    "currency",
+    "valid_from",
+    "valid_to",
+    "label",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "id_sharing_operation": {
+      "type": "integer"
+    },
+    "kind": {
+      "anyOf": [
+        {
+          "enum": [
+            "CONSUMER_SELLING",
+            "PRODUCER_BUYBACK"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "TariffKind by name (a retired code keeps its number)."
+    },
+    "scope": {
+      "anyOf": [
+        {
+          "enum": [
+            "GLOBAL",
+            "SEGMENT",
+            "EAN"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "TariffScope by name (a retired code keeps its number)."
+    },
+    "scope_segment": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "scope_ean": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "price_per_kwh": {
+      "$ref": "common.schema.json#/$defs/decimal"
+    },
+    "currency": {
+      "type": "string"
+    },
+    "valid_from": {
+      "$ref": "common.schema.json#/$defs/date"
+    },
+    "valid_to": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/date"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "label": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    }
+  }
+}

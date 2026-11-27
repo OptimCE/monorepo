@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/administrative-document/changes.schema.json",
+  "title": "administrative-document/changes.json item",
+  "description": "Community export: one `change` row of the community, as stored (minus `id_community`, the scope), codes by name.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "id_sharing_operation",
+    "kind",
+    "subject_type",
+    "subject_ref",
+    "payload_json",
+    "source_event_id",
+    "procedure_code",
+    "status",
+    "id_dossier",
+    "detected_at",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "id_sharing_operation": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "kind": {
+      "type": "string"
+    },
+    "subject_type": {
+      "anyOf": [
+        {
+          "enum": [
+            "METER",
+            "KEY",
+            "MEMBER",
+            "OPERATION",
+            "COMMUNITY"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "ChangeSubjectType by name (a retired code keeps its number)."
+    },
+    "subject_ref": {
+      "type": "string"
+    },
+    "payload_json": {
+      "$ref": "common.schema.json#/$defs/json"
+    },
+    "source_event_id": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "procedure_code": {
+      "type": "string"
+    },
+    "status": {
+      "anyOf": [
+        {
+          "enum": [
+            "PENDING",
+            "ATTACHED",
+            "DEFERRED",
+            "EXCLUDED",
+            "CANCELLED",
+            "APPLIED",
+            "REFUSED"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "ChangeStatus by name (a retired code keeps its number)."
+    },
+    "id_dossier": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "detected_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "1.0",
+  "exportId": "6f1c2a7e-3b9d-4c1e-9a52-0d8e4f7b1a23",
+  "partId": "b2d4e6f8-1a3c-4e5f-8a9b-0c1d2e3f4a5b",
+  "service": "billing",
+  "attempt": 2,
+  "errorCode": "corrupt_data",
+  "errorDetail": "invoice 812: artifact_uri points to a missing object",
+  "failedAt": "2026-11-14T15:02:40Z"
+}

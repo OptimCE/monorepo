@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/crm/account.schema.json",
+  "title": "crm/account.json item",
+  "description": "The user's account: profile, notification preferences, onboarding answers, communities and roles.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "email",
+    "first_name",
+    "last_name",
+    "nrn",
+    "phone_number",
+    "iban",
+    "locale",
+    "home_address",
+    "billing_address",
+    "created_at",
+    "updated_at",
+    "notification_preferences",
+    "onboarding",
+    "communities"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "email": {
+      "type": "string"
+    },
+    "first_name": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "last_name": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "nrn": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "phone_number": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "iban": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "locale": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "home_address": {
+      "$ref": "common.schema.json#/$defs/addressOrNull"
+    },
+    "billing_address": {
+      "$ref": "common.schema.json#/$defs/addressOrNull"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestampOrNull"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestampOrNull"
+    },
+    "notification_preferences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type_prefix",
+          "channel",
+          "mode"
+        ],
+        "properties": {
+          "type_prefix": {
+            "type": "string"
+          },
+          "channel": {
+            "type": "integer"
+          },
+          "mode": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "onboarding": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tour_key",
+          "outcome",
+          "tour_version",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "tour_key": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "tour_version": {
+            "$ref": "common.schema.json#/$defs/stringOrNull"
+          },
+          "created_at": {
+            "$ref": "common.schema.json#/$defs/timestampOrNull"
+          },
+          "updated_at": {
+            "$ref": "common.schema.json#/$defs/timestampOrNull"
+          }
+        }
+      }
+    },
+    "communities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "role"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "common.schema.json#/$defs/role"
+          }
+        }
+      }
+    }
+  }
+}

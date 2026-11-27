@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/billing/billing-runs.schema.json",
+  "title": "billing/billing-runs.json item",
+  "description": "Community export: one `billing_run` row of the community, as stored (minus `id_community`, the scope), codes by name, amounts as text.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "id_sharing_operation",
+    "period_start",
+    "period_end",
+    "status",
+    "regulator",
+    "kwh_scale",
+    "warnings",
+    "error_message",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "id_sharing_operation": {
+      "type": "integer"
+    },
+    "period_start": {
+      "$ref": "common.schema.json#/$defs/date"
+    },
+    "period_end": {
+      "$ref": "common.schema.json#/$defs/date"
+    },
+    "status": {
+      "anyOf": [
+        {
+          "enum": [
+            "PENDING",
+            "COMPUTING",
+            "COMPUTED",
+            "FAILED"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "BillingRunStatus by name (a retired code keeps its number)."
+    },
+    "regulator": {
+      "type": "string"
+    },
+    "kwh_scale": {
+      "$ref": "common.schema.json#/$defs/decimal"
+    },
+    "warnings": {
+      "$ref": "common.schema.json#/$defs/json"
+    },
+    "error_message": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    }
+  }
+}

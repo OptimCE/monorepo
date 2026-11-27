@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/export-part-done.schema.json",
+  "title": "export.part.done",
+  "description": "service → worker. Every file of the part is fully written in MinIO. A service with nothing to export answers with `files: []`. Every `files[].path` and `references[].targetPath` starts with `<service>/` (checked by the worker, not expressible here).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "exportId", "partId", "service", "attempt", "files", "references", "summary", "omitted", "producedAt"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "exportId": { "$ref": "common.schema.json#/$defs/uuid" },
+    "partId": { "$ref": "common.schema.json#/$defs/uuid" },
+    "service": { "$ref": "common.schema.json#/$defs/service" },
+    "attempt": { "$ref": "common.schema.json#/$defs/attempt" },
+    "files": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": { "$ref": "common.schema.json#/$defs/partFile" }
+    },
+    "references": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": { "$ref": "common.schema.json#/$defs/reference" }
+    },
+    "summary": {
+      "type": "array",
+      "maxItems": 200,
+      "items": { "$ref": "common.schema.json#/$defs/summaryItem" }
+    },
+    "omitted": {
+      "type": "array",
+      "maxItems": 200,
+      "items": { "$ref": "common.schema.json#/$defs/omittedItem" }
+    },
+    "producedAt": { "$ref": "common.schema.json#/$defs/dateTime" }
+  }
+}

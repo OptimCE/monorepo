@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/data-file.schema.json",
+  "title": "Envelope of every JSON data file in an archive",
+  "description": "One file per entity type (`<service>/<entity>.json`). The envelope is written first and `items` is streamed, so a service never holds the whole list in memory. Each entity's item schema lives in `files/<service>/<entity>.schema.json` and is added with its handler.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "service", "entity", "scope", "generatedAt", "items"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "service": { "$ref": "common.schema.json#/$defs/service" },
+    "entity": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,62}$" },
+    "scope": { "enum": ["user", "community"] },
+    "generatedAt": { "$ref": "common.schema.json#/$defs/dateTime" },
+    "items": { "type": "array" }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/export-part-failed.schema.json",
+  "title": "export.part.failed",
+  "description": "service → worker. A non-recoverable error: the whole export fails (no silent partial export). A transient error is NOT reported here: the handler naks and JetStream redelivers. `errorDetail` is for operators and must not contain exported content or personal data.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "exportId", "partId", "service", "attempt", "errorCode", "errorDetail", "failedAt"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "exportId": { "$ref": "common.schema.json#/$defs/uuid" },
+    "partId": { "$ref": "common.schema.json#/$defs/uuid" },
+    "service": { "$ref": "common.schema.json#/$defs/service" },
+    "attempt": { "$ref": "common.schema.json#/$defs/attempt" },
+    "errorCode": {
+      "enum": ["scope_not_found", "forbidden", "corrupt_data", "unsupported_schema", "internal"]
+    },
+    "errorDetail": { "type": "string", "maxLength": 2000 },
+    "failedAt": { "$ref": "common.schema.json#/$defs/dateTime" }
+  }
+}

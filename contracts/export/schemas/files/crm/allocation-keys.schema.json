@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/crm/allocation-keys.schema.json",
+  "title": "crm/allocation-keys.json item",
+  "description": "Community export: an allocation key with its iterations and consumers.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "description",
+    "iterations",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "iterations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "number",
+          "energy_allocated_percentage",
+          "consumers"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "number": {
+            "type": "integer"
+          },
+          "energy_allocated_percentage": {
+            "type": "number"
+          },
+          "consumers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "name",
+                "energy_allocated_percentage"
+              ],
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "energy_allocated_percentage": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestampOrNull"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestampOrNull"
+    }
+  }
+}

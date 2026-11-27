@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/crm/notifications.schema.json",
+  "title": "crm/notifications.json item",
+  "description": "User export: an in-app notification the user received. `data` holds what its text is built from.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "community",
+    "type",
+    "data",
+    "read_at",
+    "created_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "community": {
+      "$ref": "common.schema.json#/$defs/refOrNull"
+    },
+    "type": {
+      "type": "string"
+    },
+    "data": {
+      "type": "object"
+    },
+    "read_at": {
+      "$ref": "common.schema.json#/$defs/timestampOrNull"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/administrative-document/inbound-mail-attachments.schema.json",
+  "title": "administrative-document/inbound-mail-attachments.json item",
+  "description": "Community export: one `inbound_mail_attachment` row of the community, as stored (minus `id_community`, the scope), codes by name.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "id_inbound_mail",
+    "position",
+    "filename",
+    "content_type",
+    "byte_size",
+    "content_sha256",
+    "created_at",
+    "file"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "id_inbound_mail": {
+      "type": "integer"
+    },
+    "position": {
+      "type": "integer"
+    },
+    "filename": {
+      "type": "string"
+    },
+    "content_type": {
+      "type": "string"
+    },
+    "byte_size": {
+      "type": "integer"
+    },
+    "content_sha256": {
+      "type": "string"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "file": {
+      "$ref": "common.schema.json#/$defs/fileRef"
+    }
+  }
+}

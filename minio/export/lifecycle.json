@@ -1,0 +1,16 @@
+{
+  "Rules": [
+    {
+      "ID": "export-parts",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "parts/" },
+      "Expiration": { "Days": 2 }
+    },
+    {
+      "ID": "export-archives",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "archives/" },
+      "Expiration": { "Days": 8 }
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "1.0",
+  "service": "crm",
+  "entity": "members",
+  "scope": "community",
+  "generatedAt": "2026-11-14T15:01:00Z",
+  "items": [ { "id": 7, "memberType": "individual" } ]
+}

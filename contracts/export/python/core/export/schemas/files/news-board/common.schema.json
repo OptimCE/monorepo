@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/news-board/common.schema.json",
+  "title": "Shared definitions of the news-board part's files",
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "postType": {
+      "anyOf": [
+        {
+          "enum": [
+            "POST",
+            "POLL_SINGLE_CHOICE",
+            "POLL_MULTIPLE_CHOICE"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "By name (a retired code keeps its number)."
+    },
+    "adminVisibility": {
+      "anyOf": [
+        {
+          "anyOf": [
+            {
+              "enum": [
+                "AGGREGATE",
+                "FULL"
+              ]
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "description": "By name (a retired code keeps its number)."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "memberVisibility": {
+      "anyOf": [
+        {
+          "anyOf": [
+            {
+              "enum": [
+                "NONE",
+                "AGGREGATE",
+                "FULL"
+              ]
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "description": "By name (a retired code keeps its number)."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "memberDisplay": {
+      "anyOf": [
+        {
+          "anyOf": [
+            {
+              "enum": [
+                "NEVER",
+                "BEFORE_VOTE",
+                "AFTER_VOTE",
+                "WHEN_POLL_ENDS"
+              ]
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "description": "By name (a retired code keeps its number)."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

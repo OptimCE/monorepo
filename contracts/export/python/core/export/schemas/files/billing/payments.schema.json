@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/billing/payments.schema.json",
+  "title": "billing/payments.json item",
+  "description": "Community export: one `payment` row of the community, as stored (minus `id_community`, the scope), codes by name, amounts as text.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "id_invoice",
+    "amount",
+    "currency",
+    "method",
+    "reference",
+    "paid_at",
+    "created_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "id_invoice": {
+      "type": "integer"
+    },
+    "amount": {
+      "$ref": "common.schema.json#/$defs/decimal"
+    },
+    "currency": {
+      "type": "string"
+    },
+    "method": {
+      "anyOf": [
+        {
+          "enum": [
+            "BANK_TRANSFER",
+            "DIRECT_DEBIT",
+            "CASH",
+            "OTHER"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "PaymentMethod by name (a retired code keeps its number)."
+    },
+    "reference": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "paid_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    }
+  }
+}

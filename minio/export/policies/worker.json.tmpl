@@ -1,0 +1,29 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadAndCleanExports",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:DeleteObject"],
+      "Resource": ["arn:aws:s3:::@BUCKET@/*"]
+    },
+    {
+      "Sid": "WriteArchives",
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:AbortMultipartUpload", "s3:ListMultipartUploadParts"],
+      "Resource": ["arn:aws:s3:::@BUCKET@/archives/*"]
+    },
+    {
+      "Sid": "ListExports",
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
+      "Resource": ["arn:aws:s3:::@BUCKET@"]
+    },
+    {
+      "Sid": "ReadReferencedDocuments",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject"],
+      "Resource": [@DOCUMENT_RESOURCES@]
+    }
+  ]
+}
