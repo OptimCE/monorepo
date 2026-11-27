@@ -42,6 +42,9 @@ sous-modules :
 | `document-generation/` | [OptimCE/document-generation](https://github.com/OptimCE/document-generation) | Service de génération de documents (Python) |
 | `news-board/` | [OptimCE/news-board](https://github.com/OptimCE/news-board) | Service de tableau d'actualités communautaire (Python) |
 | `notification-dispatch/` | [OptimCE/notification-dispatch](https://github.com/OptimCE/notification-dispatch) | Worker d'envoi des e-mails sortants (Python) |
+| `live-data/` | [OptimCE/live-data](https://github.com/OptimCE/live-data) | Service de télémétrie des compteurs communicants via MQTT (Python) |
+| `signature/` | [OptimCE/signature](https://github.com/OptimCE/signature) | Service de signature électronique (Python) |
+| `dso-lookup/` | [OptimCE/dso-lookup](https://github.com/OptimCE/dso-lookup) | Recherche du gestionnaire de réseau de distribution d'une adresse belge (Python, interne) |
 | `keycloak/kc-groupid-mapper/` | [OptimCE/kc-groupid-mapper](https://github.com/OptimCE/kc-groupid-mapper) | Mapper Keycloak ajoutant les informations de groupe aux jetons |
 | `keycloak/optimce-keycloak-theme/` | [OptimCE/optimce-keycloak-theme](https://github.com/OptimCE/optimce-keycloak-theme) | Thème de connexion Keycloak (Keycloakify) |
 | `krakend/swagger2krakend/` | [OptimCE/swagger2krakend](https://github.com/OptimCE/swagger2krakend) | Générateur de configuration OpenAPI → KrakenD (Python) |
@@ -54,12 +57,14 @@ d'infrastructure propre à ce dépôt :
 | `krakend/` | Configuration de la passerelle API (`krakend.json` généré et sources OpenAPI) |
 | `keycloak/` | Image Keycloak, configuration du realm et providers |
 | `nginx/` | Configuration du reverse proxy et certificats |
+| `contracts/` | Le contrat de l'export des données : schémas des messages et des fichiers, exemples, et le kit Python dont chaque service porte une copie |
 | `postgres/` | Provisionnement et vérification de l'instance de base de données unifiée — rôles, bases, droits ([README](../postgres/README.md)) |
 | `mosquitto/` | Configuration du courtier MQTT de Live Data (`mosquitto.conf`) |
+| `minio/` | Le stockage de l'export des données : cycle de vie du bucket et droits des comptes |
+| `nats/` | Configuration du serveur NATS |
 | `crm-frontend-config/` | Configuration d'exécution du frontend (générée) |
 | `reference/` | Données de référence partagées (p. ex. `regulators.json`) |
-| `scripts/` | Vérifications de bout en bout contre la stack de développement en cours d'exécution, p. ex. `verify-live-ingest.sh` pour Live Data |
-| `docs/runbooks/` | Procédures opérationnelles, p. ex. [la consolidation des bases de production](runbooks/database-consolidation.md) et [Live Data](runbooks/live-data.md) |
+| `scripts/` | Vérifications de bout en bout contre la stack de développement en cours d'exécution, p. ex. `verify-live-ingest.sh` pour Live Data et `verify-export-contract.sh` pour l'export des données, et `check-export-parity.sh`, qui compare les copies du kit d'export |
 
 ## Architecture
 
@@ -69,6 +74,8 @@ suivants :
 **Applications**
 - **crm-frontend** : interface utilisateur Angular
 - **crm-backend** : API backend du CRM
+- **crm-outbox-relay** : publie sur NATS les événements de l'outbox du CRM
+- **crm-export-worker** : assemble les exports de données (RGPD) en archives ZIP
 - **allocation-key-generation** (+ worker) : calcul des clés de répartition
 - **simulation-key** (+ worker) : simulations de partage d'énergie
 - **administrative-document** (+ worker) : dossiers réglementaires, échéances
@@ -76,15 +83,20 @@ suivants :
 - **billing** (+ worker) : facturation
 - **live-data** (+ worker, + scheduler) : télémétrie des compteurs communicants
   via MQTT — enrôlement des appareils, ingestion, agrégats horaires et journaliers
+- **signature** (+ worker, + test-pki) : signatures électroniques, avec une
+  autorité de certification et d'horodatage jetable pour le développement
+- **dso-lookup** : gestionnaire de réseau de distribution d'une adresse belge,
+  appelé par crm-backend seulement
 - **document-generation** : worker de génération de documents
 - **notification-dispatch** : worker d'envoi des e-mails sortants
 - **optimce-news-board** : tableau d'actualités communautaire
 
 **Bases de données** (PostgreSQL)
-- **postgres** : une seule instance, sept bases logiques — `crm_db`,
+- **postgres** : une seule instance, huit bases logiques — `crm_db`,
   `allocation_key_local`, `simulation_key_local`, `news_board_local`,
-  `billing_local`, `administrative_document_local`, `live_data_local` — chacune
-  appartenant à son propre rôle de connexion. Voir [postgres/README.md](../postgres/README.md).
+  `billing_local`, `administrative_document_local`, `live_data_local`,
+  `signature_local` — chacune appartenant à son propre rôle de connexion. Voir
+  [postgres/README.md](../postgres/README.md).
 - **keycloak-db** : une instance distincte ; Keycloak gère son propre schéma.
 
 **Plateforme**
@@ -97,12 +109,17 @@ suivants :
   télémétrie Live Data, avec le plugin dynamic-security ; les deux conteneurs à
   exécution unique créent son fichier de sécurité avant son démarrage, puis ses
   rôles une fois qu'il tourne
+- **redis** : événements temps réel entre les services et l'application
+- **best-address** : recherche d'adresses belges (BeST)
+- **mailpit**, **greenmail** : courrier de développement — collecteur des e-mails
+  sortants et boîte de test (IMAP + SMTP)
 - **jaeger** : traçage distribué (OpenTelemetry)
 
 **Génération de configuration** (profil `init`, conteneurs à exécution unique)
 - **swagger-doc-gen**, **generation-doc-gen**, **simulation-doc-gen**,
   **news-doc-gen**, **billing-doc-gen**, **administrative-document-doc-gen**,
-  **live-data-doc-gen** : collectent la spécification OpenAPI de chaque service
+  **live-data-doc-gen**, **signature-doc-gen** : collectent la spécification
+  OpenAPI de chaque service
 - **krakend-config**, **keycloak-config**, **nginx-config**,
   **crm-frontend-config** : génèrent la configuration de la passerelle, de
   l'authentification, du proxy et du frontend à partir de modèles
@@ -231,7 +248,14 @@ Commandes principales :
 ./docker-stack.sh start
 ./docker-stack.sh stop
 ./docker-stack.sh restart
+./docker-stack.sh verify
 ```
+
+`verify` prouve l'isolation des bases : qu'aucun service ne peut atteindre la base
+d'un autre, et que chaque écriture dans le CRM qui lui *est* accordée aboutit
+vraiment. La seconde moitié compte parce que les annexes avalent leurs propres échecs
+d'audit et de notification — un droit manquant renvoie HTTP 200 et perd la ligne sans
+bruit. Voir [postgres/README.md](../postgres/README.md).
 
 Le flux exécute automatiquement :
 
@@ -319,6 +343,7 @@ démarrage.
 | Service | Port hôte | Port conteneur | Protocole | Usage |
 |---|---:|---:|---|---|
 | `mosquitto` | `127.0.0.1:1883` | `1883` | `tcp` | Courtier MQTT (Live Data), en clair — boucle locale uniquement |
+| `greenmail` | `3025` | `3025` | `tcp` | Boîte de test de développement (SMTP) |
 | `allocation-key-generation` | `8002` | `8000` | `tcp` | API des clés de répartition |
 | `simulation-key` | `8003` | `8000` | `tcp` | API de simulation |
 | `optimce-news-board` | `8004` | `8000` | `tcp` | API du tableau d'actualités |
@@ -326,7 +351,8 @@ démarrage.
 | `administrative-document` | `8006` | `8000` | `tcp` | API des documents administratifs |
 | `mailpit` | `8007` | `8025` | `tcp` | Collecteur d'e-mails de développement (interface web) |
 | `live-data` | `8008` | `8000` | `tcp` | API Live Data |
-| `postgres` | `8080` | `5432` | `tcp` | PostgreSQL — sept bases logiques (crm_db, billing_local, …) |
+| `signature` | `8009` | `8000` | `tcp` | API de signature |
+| `postgres` | `8080` | `5432` | `tcp` | PostgreSQL — huit bases logiques (crm_db, billing_local, …) |
 | `keycloak-db` | `8081` | `5432` | `tcp` | PostgreSQL Keycloak |
 | `keycloak` | `8082` | `8080` | `tcp` | Authentification Keycloak |
 | `jaeger` | `8084` | `6831` | `udp` | Collecteur Jaeger |
@@ -334,12 +360,15 @@ démarrage.
 | `krakend` | `8086` | `8080` | `tcp` | Passerelle API |
 | `reverse-proxy` | `8087` | `80` | `tcp` | Reverse proxy HTTP |
 | `reverse-proxy` | `8088` | `443` | `tcp` | Reverse proxy HTTPS |
-| `crm-backend` | `8089` | `80` | `tcp` | API backend |
+| `crm-backend` | `127.0.0.1:8089` | `80` | `tcp` | API backend — boucle locale uniquement |
 | `crm-frontend` | `8090` | `80` | `tcp` | Interface frontend |
 | `minio` | `8091` | `9000` | `tcp` | API MinIO |
 | `minio` | `8092` | `9001` | `tcp` | Console MinIO |
+| `redis` | `127.0.0.1:8093` | `6379` | `tcp` | Redis (temps réel) — boucle locale uniquement |
 | `nats` | `8094` | `4222` | `tcp` | Client NATS |
 | `nats` | `8095` | `8222` | `tcp` | Monitoring NATS |
+| `best-address` | `127.0.0.1:8096` | `8080` | `tcp` | API d'adresses BeST — boucle locale uniquement |
+| `dso-lookup` | `127.0.0.1:8097` | `8000` | `tcp` | API de recherche du GRD — boucle locale uniquement |
 
 `mosquitto` n'est publié que sur l'interface de **boucle locale** de l'hôte
 (`127.0.0.1:1883`) : l'écouteur de développement est en clair, et un simple
