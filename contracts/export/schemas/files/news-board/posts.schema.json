@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/news-board/posts.schema.json",
+  "title": "news-board/posts.json item",
+  "description": "Community export: every post and poll, each option with its vote count and the poll's number of voters (null for a post). Never who voted for what.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "type",
+    "post",
+    "expires_at",
+    "admin_visibility",
+    "member_visibility",
+    "member_display",
+    "created_at",
+    "updated_at",
+    "options",
+    "author_id",
+    "author_email",
+    "voters"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "type": {
+      "$ref": "common.schema.json#/$defs/postType"
+    },
+    "post": {
+      "type": "string",
+      "description": "The Markdown text, as written."
+    },
+    "expires_at": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "admin_visibility": {
+      "$ref": "common.schema.json#/$defs/adminVisibility"
+    },
+    "member_visibility": {
+      "$ref": "common.schema.json#/$defs/memberVisibility"
+    },
+    "member_display": {
+      "$ref": "common.schema.json#/$defs/memberDisplay"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "options": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "option_value",
+          "display_order",
+          "votes"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "option_value": {
+            "type": "string"
+          },
+          "display_order": {
+            "type": "integer"
+          },
+          "votes": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "author_id": {
+      "type": "string"
+    },
+    "author_email": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "voters": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/administrative-document/filings.schema.json",
+  "title": "administrative-document/filings.json item",
+  "description": "User export: `/filings/mine` in each community where a member is linked to the requester: a filing of record and, out of its frozen snapshot, only the requester's own rows.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id_community",
+    "community",
+    "dossier",
+    "document",
+    "template_label",
+    "version",
+    "my_rows"
+  ],
+  "properties": {
+    "id_community": {
+      "type": "integer"
+    },
+    "community": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "dossier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "status",
+        "family",
+        "step",
+        "title",
+        "external_ref",
+        "submitted_at"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "integer"
+        },
+        "family": {
+          "type": "string"
+        },
+        "step": {
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "external_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "submitted_at": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "doc_type",
+        "status",
+        "title"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "doc_type": {
+          "type": "string"
+        },
+        "status": {
+          "type": "integer"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "template_label": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "version": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version_no",
+        "created_at"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "version_no": {
+          "type": "integer"
+        },
+        "created_at": {
+          "$ref": "common.schema.json#/$defs/timestamp"
+        }
+      }
+    },
+    "my_rows": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "members",
+        "participants",
+        "installations",
+        "storage"
+      ],
+      "properties": {
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "participants": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "installations": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "storage": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/crm/users.schema.json",
+  "title": "crm/users.json item",
+  "description": "Community export: an account of the community and its role.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "first_name",
+    "last_name",
+    "email",
+    "phone_number",
+    "role"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "first_name": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "last_name": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "email": {
+      "type": "string"
+    },
+    "phone_number": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "role": {
+      "$ref": "common.schema.json#/$defs/role"
+    }
+  }
+}

@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/crm/identity.schema.json",
+  "title": "crm/identity.json item",
+  "description": "What the identity provider (Keycloak) holds about the user. Never a credential, a password hash, an OTP setting or a secret.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "username",
+    "email",
+    "email_verified",
+    "first_name",
+    "last_name",
+    "enabled",
+    "created_at",
+    "attributes",
+    "identity_providers",
+    "realm_roles",
+    "groups"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "username": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "email": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "email_verified": {
+      "$ref": "common.schema.json#/$defs/booleanOrNull"
+    },
+    "first_name": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "last_name": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "enabled": {
+      "$ref": "common.schema.json#/$defs/booleanOrNull"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestampOrNull"
+    },
+    "attributes": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "identity_providers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "provider",
+          "user_id",
+          "user_name"
+        ],
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "user_id": {
+            "$ref": "common.schema.json#/$defs/stringOrNull"
+          },
+          "user_name": {
+            "$ref": "common.schema.json#/$defs/stringOrNull"
+          }
+        }
+      }
+    },
+    "realm_roles": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "path"
+        ],
+        "properties": {
+          "name": {
+            "$ref": "common.schema.json#/$defs/stringOrNull"
+          },
+          "path": {
+            "$ref": "common.schema.json#/$defs/stringOrNull"
+          }
+        }
+      }
+    }
+  }
+}

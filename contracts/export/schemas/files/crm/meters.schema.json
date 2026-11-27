@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/crm/meters.schema.json",
+  "title": "crm/meters.json item",
+  "description": "A meter and its history. In a user export, only the periods the user's members held it.",
+  "$ref": "common.schema.json#/$defs/meter"
+}

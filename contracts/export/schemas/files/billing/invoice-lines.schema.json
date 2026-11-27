@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/billing/invoice-lines.schema.json",
+  "title": "billing/invoice-lines.json item",
+  "description": "Community export: one `invoice_line` row of the community, as stored (minus `id_community`, the scope), codes by name, amounts as text.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "id_invoice",
+    "ean",
+    "direction",
+    "measure",
+    "quantity_kwh",
+    "unit_price",
+    "amount",
+    "description",
+    "created_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "id_invoice": {
+      "type": "integer"
+    },
+    "ean": {
+      "type": "string"
+    },
+    "direction": {
+      "anyOf": [
+        {
+          "enum": [
+            "CONSUMER",
+            "PRODUCER"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "BillingDirection by name (a retired code keeps its number)."
+    },
+    "measure": {
+      "anyOf": [
+        {
+          "enum": [
+            "SHARED",
+            "INJ_SHARED"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "Measure by name (a retired code keeps its number)."
+    },
+    "quantity_kwh": {
+      "$ref": "common.schema.json#/$defs/decimal"
+    },
+    "unit_price": {
+      "$ref": "common.schema.json#/$defs/decimal"
+    },
+    "amount": {
+      "$ref": "common.schema.json#/$defs/decimal"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    }
+  }
+}

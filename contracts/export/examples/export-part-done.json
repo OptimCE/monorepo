@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "exportId": "6f1c2a7e-3b9d-4c1e-9a52-0d8e4f7b1a23",
+  "partId": "b2d4e6f8-1a3c-4e5f-8a9b-0c1d2e3f4a5b",
+  "service": "signature",
+  "attempt": 1,
+  "files": [
+    {
+      "path": "signature/requests.json",
+      "key": "parts/6f1c2a7e-3b9d-4c1e-9a52-0d8e4f7b1a23/signature/requests.json",
+      "size": 1234,
+      "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "contentType": "application/json"
+    }
+  ],
+  "references": [
+    {
+      "bucket": "optimce-documents",
+      "key": "signature/2c8a/41/final.pdf",
+      "targetPath": "signature/files/41-annexe-8-signee.pdf",
+      "size": 98765,
+      "contentType": "application/pdf"
+    }
+  ],
+  "summary": [ { "labelKey": "export.signature.requests", "count": 1 } ],
+  "omitted": [],
+  "producedAt": "2026-11-14T15:01:12Z"
+}

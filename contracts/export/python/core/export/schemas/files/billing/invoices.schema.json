@@ -1,0 +1,203 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/billing/invoices.schema.json",
+  "title": "billing/invoices.json item",
+  "description": "Community export: one `invoice` row of the community, as stored (minus `id_community`, the scope), codes by name, amounts as text.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "id_billing_run",
+    "id_member",
+    "type",
+    "status",
+    "number",
+    "legal_entity_key",
+    "currency",
+    "subtotal",
+    "vat_rate",
+    "vat_amount",
+    "total",
+    "structured_comm",
+    "issued_at",
+    "due_date",
+    "sent_at",
+    "paid_at",
+    "corrects_invoice_id",
+    "artifact_sha256",
+    "docgen_request_id",
+    "created_at",
+    "updated_at",
+    "file"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "id_billing_run": {
+      "type": "integer"
+    },
+    "id_member": {
+      "type": "integer"
+    },
+    "type": {
+      "anyOf": [
+        {
+          "enum": [
+            "INVOICE",
+            "CREDIT_NOTE",
+            "PRODUCER_STATEMENT"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "InvoiceType by name (a retired code keeps its number)."
+    },
+    "status": {
+      "anyOf": [
+        {
+          "enum": [
+            "DRAFT",
+            "ISSUED",
+            "SENT",
+            "PAID",
+            "OVERDUE",
+            "CANCELLED",
+            "RENDER_FAILED",
+            "CREDITED"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "InvoiceStatus by name (a retired code keeps its number)."
+    },
+    "number": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "legal_entity_key": {
+      "type": "string"
+    },
+    "currency": {
+      "type": "string"
+    },
+    "subtotal": {
+      "$ref": "common.schema.json#/$defs/decimal"
+    },
+    "vat_rate": {
+      "$ref": "common.schema.json#/$defs/decimal"
+    },
+    "vat_amount": {
+      "$ref": "common.schema.json#/$defs/decimal"
+    },
+    "total": {
+      "$ref": "common.schema.json#/$defs/decimal"
+    },
+    "structured_comm": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "issued_at": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "due_date": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/date"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sent_at": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "paid_at": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "corrects_invoice_id": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "artifact_sha256": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "docgen_request_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "file": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/fileRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

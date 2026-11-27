@@ -6,6 +6,12 @@
       "matchDatasources": ["docker"],
       "matchPackageNames": ["bosa/opendata-best-webapi"],
       "versioning": "regex:^(?<major>[0-9]{4})-(?<minor>[0-9]{1,2})$"
+    },
+    {
+      "description": "Its own branch, out of group:allNonMajor: the publisher keeps only ten weekly tags, so this update must land even when another member of the group blocks the shared branch (it was in error on 2026-11-23, while 2026-35 had already been withdrawn).",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["bosa/opendata-best-webapi"],
+      "groupName": "BeSt address register"
     }
   ]
 }

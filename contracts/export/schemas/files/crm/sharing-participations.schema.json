@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/crm/sharing-participations.schema.json",
+  "title": "crm/sharing-participations.json item",
+  "description": "User export: one period during which one of the user's members took part in a sharing operation with a meter.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ean",
+    "member",
+    "sharing_operation",
+    "start_date",
+    "end_date",
+    "status"
+  ],
+  "properties": {
+    "ean": {
+      "type": "string"
+    },
+    "member": {
+      "$ref": "common.schema.json#/$defs/refOrNull"
+    },
+    "sharing_operation": {
+      "$ref": "common.schema.json#/$defs/operationRef"
+    },
+    "start_date": {
+      "$ref": "common.schema.json#/$defs/dateOrNull"
+    },
+    "end_date": {
+      "$ref": "common.schema.json#/$defs/dateOrNull"
+    },
+    "status": {
+      "type": "integer"
+    }
+  }
+}

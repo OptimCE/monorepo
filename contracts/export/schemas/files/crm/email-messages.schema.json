@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/crm/email-messages.schema.json",
+  "title": "crm/email-messages.json item",
+  "description": "User export: an email the platform queued for the user. Type, channel, status and dates only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "type",
+    "channel",
+    "category",
+    "status",
+    "locale",
+    "community_id",
+    "created_at",
+    "sent_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string"
+    },
+    "channel": {
+      "type": "integer"
+    },
+    "category": {
+      "description": "1 transactional, 2 informational",
+      "type": "integer"
+    },
+    "status": {
+      "description": "1 pending, 2 sent, 3 failed, 4 suppressed, 5 being sent",
+      "type": "integer"
+    },
+    "locale": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "community_id": {
+      "$ref": "common.schema.json#/$defs/integerOrNull"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "sent_at": {
+      "$ref": "common.schema.json#/$defs/timestampOrNull"
+    }
+  }
+}

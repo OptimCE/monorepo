@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/export-request.schema.json",
+  "title": "export.request.<service>",
+  "description": "worker → one service. Write your part under storage.prefix, then answer export.part.done or export.part.failed with the same partId and attempt.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "exportId", "partId", "service", "attempt", "scope", "requester", "requestedAt", "storage"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "exportId": { "$ref": "common.schema.json#/$defs/uuid" },
+    "partId": { "$ref": "common.schema.json#/$defs/uuid" },
+    "service": { "$ref": "common.schema.json#/$defs/service" },
+    "attempt": { "$ref": "common.schema.json#/$defs/attempt" },
+    "scope": { "$ref": "common.schema.json#/$defs/scope" },
+    "requester": { "$ref": "common.schema.json#/$defs/requester" },
+    "requestedAt": { "$ref": "common.schema.json#/$defs/dateTime" },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bucket", "prefix"],
+      "properties": {
+        "bucket": { "$ref": "common.schema.json#/$defs/bucket" },
+        "prefix": {
+          "description": "parts/<exportId>/<service>/ — the only place the service may write.",
+          "type": "string",
+          "pattern": "^parts/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[a-z][a-z0-9-]{1,62}/$"
+        }
+      }
+    }
+  }
+}

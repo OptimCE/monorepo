@@ -1,0 +1,269 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/administrative-document/procedures.schema.json",
+  "title": "administrative-document/procedures.json item",
+  "description": "Community export: one `dossier` row of the community, as stored (minus `id_community`, the scope), codes by name.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "id_sharing_operation",
+    "status",
+    "step",
+    "region",
+    "external_ref",
+    "title",
+    "submitted_at",
+    "metadata_json",
+    "id_procedure_definition",
+    "regulator",
+    "family",
+    "scope",
+    "grd_ref",
+    "variant",
+    "requested_effective_date",
+    "effective_date",
+    "opened_by",
+    "frozen_at",
+    "period_key",
+    "next_action_code",
+    "next_action_due",
+    "effect_error_json",
+    "created_at",
+    "updated_at",
+    "procedure_code",
+    "procedure_version"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "id_sharing_operation": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "anyOf": [
+        {
+          "enum": [
+            "DRAFT",
+            "SENT",
+            "LAPSED",
+            "READY",
+            "IN_FORCE",
+            "REFUSED",
+            "CANCELLED"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "ProcedureStatus by name (a retired code keeps its number)."
+    },
+    "step": {
+      "type": "string"
+    },
+    "region": {
+      "anyOf": [
+        {
+          "enum": [
+            "WAL",
+            "BRU",
+            "VLA"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "Region by name (a retired code keeps its number)."
+    },
+    "external_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "title": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "submitted_at": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "metadata_json": {
+      "$ref": "common.schema.json#/$defs/json"
+    },
+    "id_procedure_definition": {
+      "type": "integer"
+    },
+    "regulator": {
+      "type": "string"
+    },
+    "family": {
+      "type": "string"
+    },
+    "scope": {
+      "anyOf": [
+        {
+          "enum": [
+            "COMMUNITY",
+            "OPERATION"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "ProcedureScope by name (a retired code keeps its number)."
+    },
+    "grd_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "variant": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "requested_effective_date": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/date"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "effective_date": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/date"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "opened_by": {
+      "anyOf": [
+        {
+          "enum": [
+            "SYSTEM",
+            "USER",
+            "MIGRATION"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "OpenedBy by name (a retired code keeps its number)."
+    },
+    "frozen_at": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "period_key": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "next_action_code": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "next_action_due": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/date"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "effect_error_json": {
+      "$ref": "common.schema.json#/$defs/json"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "procedure_code": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "procedure_version": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

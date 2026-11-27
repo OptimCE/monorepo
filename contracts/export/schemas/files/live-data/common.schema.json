@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/live-data/common.schema.json",
+  "title": "Shared definitions of the live-data part's files",
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "day": {
+      "type": "string",
+      "format": "date",
+      "description": "A Brussels calendar day."
+    },
+    "decimal": {
+      "type": "string",
+      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+    },
+    "device": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "ean",
+        "type",
+        "status",
+        "pure_injection",
+        "capacity_kva",
+        "production_chain",
+        "enrolled_at",
+        "revoked_at",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "The device's public id."
+        },
+        "name": {
+          "type": "string"
+        },
+        "ean": {
+          "type": "string"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "enum": [
+                "PRODUCTION",
+                "CONSUMPTION"
+              ]
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "description": "By name (a retired code keeps its number)."
+        },
+        "status": {
+          "anyOf": [
+            {
+              "enum": [
+                "PENDING",
+                "ACTIVE",
+                "REVOKED"
+              ]
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "description": "By name (a retired code keeps its number)."
+        },
+        "pure_injection": {
+          "type": "boolean"
+        },
+        "capacity_kva": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/decimal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "production_chain": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_]*$"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "enrolled_at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revoked_at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "updated_at": {
+          "$ref": "#/$defs/timestamp"
+        }
+      }
+    },
+    "consent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "id_member",
+        "field",
+        "granted",
+        "effective_from",
+        "decided_at",
+        "events"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "id_member": {
+          "type": "integer"
+        },
+        "field": {
+          "type": "string"
+        },
+        "granted": {
+          "type": "boolean"
+        },
+        "effective_from": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "decided_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "actor",
+              "action",
+              "recorded_at"
+            ],
+            "properties": {
+              "actor": {
+                "type": "string"
+              },
+              "action": {
+                "type": "string"
+              },
+              "recorded_at": {
+                "$ref": "#/$defs/timestamp"
+              }
+            }
+          }
+        }
+      }
+    },
+    "grid": {
+      "enum": [
+        "published",
+        "withheld"
+      ],
+      "description": "Whether the day passed the community's k: when withheld, import_wh, export_wh and shared_wh are absent (never null) and the manifest omits `<file>.grid`."
+    }
+  }
+}

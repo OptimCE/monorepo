@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/allocation-key-generation/generations.schema.json",
+  "title": "allocation-key-generation/generations.json item",
+  "description": "Community export: one `generation` row of the community, as stored (minus `id_community`, the scope), codes by name.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "source",
+    "file_name",
+    "injection_name",
+    "id_sharing_operation",
+    "period_start",
+    "period_end",
+    "algorithm_name",
+    "algorithm_version",
+    "inputs",
+    "status",
+    "error_message",
+    "data_warnings",
+    "created_at",
+    "updated_at",
+    "input_file"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "name": {
+      "type": "string"
+    },
+    "source": {
+      "anyOf": [
+        {
+          "enum": [
+            "FILE",
+            "CRM"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "DataSource by name (a retired code keeps its number)."
+    },
+    "file_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "injection_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "id_sharing_operation": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "period_start": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/date"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "period_end": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/date"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "algorithm_name": {
+      "type": "string"
+    },
+    "algorithm_version": {
+      "type": "string"
+    },
+    "inputs": {
+      "$ref": "common.schema.json#/$defs/json"
+    },
+    "status": {
+      "anyOf": [
+        {
+          "enum": [
+            "PENDING",
+            "SUCCESS",
+            "FAILED"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "GenerationStatus by name (a retired code keeps its number)."
+    },
+    "error_message": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "data_warnings": {
+      "$ref": "common.schema.json#/$defs/json"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "input_file": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/fileRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

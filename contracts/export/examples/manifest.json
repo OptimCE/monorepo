@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1.0",
+  "platform": { "name": "OptimCE", "version": "2026.11.0" },
+  "exportId": "6f1c2a7e-3b9d-4c1e-9a52-0d8e4f7b1a23",
+  "scope": { "type": "community", "id": "2c8a1f0e-77aa-4b8e-9d1c-5e6f7a8b9c0d", "name": "Test Community" },
+  "requester": { "userId": "auth0|admin" },
+  "generatedAt": "2026-11-14T15:05:00Z",
+  "locale": "fr",
+  "parts": [
+    {
+      "service": "crm",
+      "status": "done",
+      "files": [ { "path": "crm/members.json", "size": 1234, "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08" } ],
+      "summary": [ { "labelKey": "export.crm.members", "count": 42 } ],
+      "omitted": []
+    },
+    {
+      "service": "live-data",
+      "status": "done",
+      "files": [],
+      "summary": [],
+      "omitted": [ { "what": "live-data.aggregate", "reason": "below_threshold" } ]
+    }
+  ]
+}

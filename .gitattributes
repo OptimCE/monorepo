@@ -15,3 +15,14 @@ scripts/**/*.sh    text eol=lf
 # Git Bash, and `survey-ean` hands one of the pinned postgres/ scripts to
 # `docker compose run --entrypoint`. A CRLF docker-stack.sh fails the same way.
 docker-stack.sh    text eol=lf
+
+# The export contract is copied byte-for-byte into every service and compared by
+# scripts/check-export-parity.sh: keep the reference LF so a fresh checkout and
+# the copies agree without relying on --strip-trailing-cr.
+contracts/**       text eol=lf
+
+# minio/export/provision.sh runs under bash inside the mc container (minio-init).
+minio/**           text eol=lf
+
+# Mounted into the NATS container.
+nats/**            text eol=lf

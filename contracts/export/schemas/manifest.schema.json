@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/manifest.schema.json",
+  "title": "manifest.json",
+  "description": "Root of every export archive. Lists every file actually in the ZIP, per service, with its size and sha256 as read by the worker (references included).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "platform", "exportId", "scope", "requester", "generatedAt", "locale", "parts"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "OptimCE" },
+        "version": { "type": "string", "minLength": 1, "maxLength": 64 }
+      }
+    },
+    "exportId": { "$ref": "common.schema.json#/$defs/uuid" },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id", "name"],
+      "properties": {
+        "type": { "enum": ["user", "community"] },
+        "id": { "$ref": "common.schema.json#/$defs/externalId" },
+        "name": { "type": "string", "maxLength": 512 }
+      }
+    },
+    "requester": { "$ref": "common.schema.json#/$defs/requester" },
+    "generatedAt": { "$ref": "common.schema.json#/$defs/dateTime" },
+    "locale": { "enum": ["fr", "en", "nl", "de"] },
+    "parts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["service", "status", "files", "summary", "omitted"],
+        "properties": {
+          "service": { "$ref": "common.schema.json#/$defs/service" },
+          "status": { "const": "done" },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "size", "sha256"],
+              "properties": {
+                "path": { "$ref": "common.schema.json#/$defs/archivePath" },
+                "size": { "type": "integer", "minimum": 0 },
+                "sha256": { "$ref": "common.schema.json#/$defs/sha256" }
+              }
+            }
+          },
+          "summary": {
+            "type": "array",
+            "items": { "$ref": "common.schema.json#/$defs/summaryItem" }
+          },
+          "omitted": {
+            "type": "array",
+            "items": { "$ref": "common.schema.json#/$defs/omittedItem" }
+          }
+        }
+      }
+    }
+  }
+}

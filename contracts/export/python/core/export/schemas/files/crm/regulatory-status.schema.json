@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/crm/regulatory-status.schema.json",
+  "title": "crm/regulatory-status.json item",
+  "description": "Community export: one regulatory episode of a meter or a key, as the administrative annexe recorded it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "sharing_operation_id",
+    "subject_type",
+    "subject_ref",
+    "dossier_id",
+    "regulatory_status",
+    "valid_from",
+    "valid_to",
+    "regulatory_ref",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "sharing_operation_id": {
+      "type": "integer"
+    },
+    "subject_type": {
+      "description": "1 meter, 2 key",
+      "type": "integer"
+    },
+    "subject_ref": {
+      "type": "string"
+    },
+    "dossier_id": {
+      "type": "string"
+    },
+    "regulatory_status": {
+      "type": "integer"
+    },
+    "valid_from": {
+      "$ref": "common.schema.json#/$defs/dateOrNull"
+    },
+    "valid_to": {
+      "$ref": "common.schema.json#/$defs/dateOrNull"
+    },
+    "regulatory_ref": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    }
+  }
+}

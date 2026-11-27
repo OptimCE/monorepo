@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/crm/community.schema.json",
+  "title": "crm/community.json item",
+  "description": "Community export: the community's identity, legal and bank data, representative, public contact, regulator and active modules.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "description",
+    "website_url",
+    "regulator",
+    "vat_number",
+    "legal_name",
+    "iban",
+    "account_holder_name",
+    "representative",
+    "contact",
+    "statutes_date",
+    "internal_rules_date",
+    "headquarters_address",
+    "logo",
+    "member_count",
+    "modules",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "website_url": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "regulator": {
+      "type": "string"
+    },
+    "vat_number": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "legal_name": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "iban": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "account_holder_name": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "representative": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "first_name",
+        "last_name",
+        "email"
+      ],
+      "properties": {
+        "first_name": {
+          "$ref": "common.schema.json#/$defs/stringOrNull"
+        },
+        "last_name": {
+          "$ref": "common.schema.json#/$defs/stringOrNull"
+        },
+        "email": {
+          "$ref": "common.schema.json#/$defs/stringOrNull"
+        }
+      }
+    },
+    "contact": {
+      "description": "The public contact shown in the communities directory",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "email",
+        "phone"
+      ],
+      "properties": {
+        "email": {
+          "$ref": "common.schema.json#/$defs/stringOrNull"
+        },
+        "phone": {
+          "$ref": "common.schema.json#/$defs/stringOrNull"
+        }
+      }
+    },
+    "statutes_date": {
+      "$ref": "common.schema.json#/$defs/dateOrNull"
+    },
+    "internal_rules_date": {
+      "$ref": "common.schema.json#/$defs/dateOrNull"
+    },
+    "headquarters_address": {
+      "$ref": "common.schema.json#/$defs/addressOrNull"
+    },
+    "logo": {
+      "description": "The logo's path in the archive",
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "member_count": {
+      "type": "integer"
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestampOrNull"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestampOrNull"
+    }
+  }
+}

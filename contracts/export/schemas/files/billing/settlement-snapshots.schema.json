@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/billing/settlement-snapshots.schema.json",
+  "title": "billing/settlement-snapshots.json item",
+  "description": "Community export: one `settlement_snapshot` row of the community, as stored (minus `id_community`, the scope), codes by name, amounts as text.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "id_billing_run",
+    "ean",
+    "direction",
+    "client_type",
+    "shared_kwh",
+    "inj_shared_kwh",
+    "row_count",
+    "distinct_ts_count",
+    "id_member",
+    "owned_from",
+    "owned_to",
+    "created_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "id_billing_run": {
+      "type": "integer"
+    },
+    "ean": {
+      "type": "string"
+    },
+    "direction": {
+      "anyOf": [
+        {
+          "enum": [
+            "CONSUMER",
+            "PRODUCER"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "BillingDirection by name (a retired code keeps its number)."
+    },
+    "client_type": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "shared_kwh": {
+      "$ref": "common.schema.json#/$defs/decimal"
+    },
+    "inj_shared_kwh": {
+      "$ref": "common.schema.json#/$defs/decimal"
+    },
+    "row_count": {
+      "type": "integer"
+    },
+    "distinct_ts_count": {
+      "type": "integer"
+    },
+    "id_member": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "owned_from": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/date"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "owned_to": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/date"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    }
+  }
+}

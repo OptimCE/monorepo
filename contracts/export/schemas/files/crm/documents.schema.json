@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/crm/documents.schema.json",
+  "title": "crm/documents.json item",
+  "description": "A member document. The file itself is in the archive at `file`.",
+  "$ref": "common.schema.json#/$defs/document"
+}

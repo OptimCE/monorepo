@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/live-data/my-meters.schema.json",
+  "title": "live-data/my-meters.json item",
+  "description": "User export: a meter one of the requester's members held (a community and an EAN), the Brussels days held (another holder's days left out), its devices, and its curve files (CSV, one per Brussels year).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id_community",
+    "community",
+    "ean",
+    "held",
+    "devices",
+    "curves"
+  ],
+  "properties": {
+    "id_community": {
+      "type": "integer"
+    },
+    "community": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "ean": {
+      "type": "string"
+    },
+    "held": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from",
+          "to"
+        ],
+        "properties": {
+          "from": {
+            "$ref": "common.schema.json#/$defs/day"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "$ref": "common.schema.json#/$defs/day"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "devices": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/device"
+      }
+    },
+    "curves": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "year",
+          "path",
+          "readings"
+        ],
+        "properties": {
+          "year": {
+            "type": "integer"
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^live-data/curves/.+\\.csv$"
+          },
+          "readings": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}

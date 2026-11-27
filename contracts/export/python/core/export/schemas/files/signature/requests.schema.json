@@ -1,0 +1,350 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/signature/requests.schema.json",
+  "title": "signature/requests.json item",
+  "description": "One signature request: its summary as the app shows it, its slots, its revisions, the chain check and the files of a completed request.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "reference",
+    "id_community",
+    "community",
+    "title",
+    "locale",
+    "source_service",
+    "source_ref",
+    "status",
+    "signing_order",
+    "created_at",
+    "expires_at",
+    "closed_at",
+    "failure_code",
+    "current_revision",
+    "has_artifacts",
+    "consent_version",
+    "original_sha256",
+    "last_reminded_at",
+    "progress",
+    "signers",
+    "revisions",
+    "chain",
+    "files"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/uuid"
+    },
+    "reference": {
+      "type": "string"
+    },
+    "id_community": {
+      "type": "integer"
+    },
+    "community": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "title": {
+      "type": "string"
+    },
+    "locale": {
+      "type": "string"
+    },
+    "source_service": {
+      "type": "string"
+    },
+    "source_ref": {
+      "type": "string"
+    },
+    "status": {
+      "$ref": "common.schema.json#/$defs/requestStatus"
+    },
+    "signing_order": {
+      "enum": [
+        "PARALLEL",
+        "SEQUENTIAL"
+      ]
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "expires_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "closed_at": {
+      "$ref": "common.schema.json#/$defs/timestampOrNull"
+    },
+    "failure_code": {
+      "$ref": "common.schema.json#/$defs/stringOrNull"
+    },
+    "current_revision": {
+      "type": "integer"
+    },
+    "has_artifacts": {
+      "type": "boolean"
+    },
+    "consent_version": {
+      "type": "string"
+    },
+    "original_sha256": {
+      "$ref": "common.schema.json#/$defs/sha256"
+    },
+    "last_reminded_at": {
+      "$ref": "common.schema.json#/$defs/timestampOrNull"
+    },
+    "progress": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signed",
+        "total"
+      ],
+      "properties": {
+        "signed": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        }
+      }
+    },
+    "signers": {
+      "type": "array",
+      "items": {
+        "description": "A slot. In a user export only the requester's own slots, with `on_behalf_of` when they sign for a member who is not themselves; in a community export every slot, `on_behalf_of` null.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "position",
+          "id_member",
+          "capacity",
+          "display_name",
+          "member_label",
+          "role_label",
+          "status",
+          "method",
+          "slot",
+          "invited_at",
+          "signed_at",
+          "signed_by_name",
+          "declined_at",
+          "decline_reason",
+          "email",
+          "typed_name",
+          "viewed_revision",
+          "signed_revision",
+          "on_behalf_of",
+          "fields"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "common.schema.json#/$defs/uuid"
+          },
+          "position": {
+            "type": "integer"
+          },
+          "id_member": {
+            "$ref": "common.schema.json#/$defs/integerOrNull"
+          },
+          "capacity": {
+            "enum": [
+              "SELF",
+              "LEGAL_REPRESENTATIVE",
+              "COMMUNITY_ADMIN"
+            ]
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "member_label": {
+            "$ref": "common.schema.json#/$defs/stringOrNull"
+          },
+          "role_label": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "common.schema.json#/$defs/signerStatus"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "enum": [
+                  "TYPED",
+                  "DRAWN"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "slot": {
+            "$ref": "common.schema.json#/$defs/objectOrNull"
+          },
+          "invited_at": {
+            "$ref": "common.schema.json#/$defs/timestampOrNull"
+          },
+          "signed_at": {
+            "$ref": "common.schema.json#/$defs/timestampOrNull"
+          },
+          "signed_by_name": {
+            "$ref": "common.schema.json#/$defs/stringOrNull"
+          },
+          "declined_at": {
+            "$ref": "common.schema.json#/$defs/timestampOrNull"
+          },
+          "decline_reason": {
+            "$ref": "common.schema.json#/$defs/stringOrNull"
+          },
+          "email": {
+            "$ref": "common.schema.json#/$defs/stringOrNull"
+          },
+          "typed_name": {
+            "$ref": "common.schema.json#/$defs/stringOrNull"
+          },
+          "viewed_revision": {
+            "$ref": "common.schema.json#/$defs/integerOrNull"
+          },
+          "signed_revision": {
+            "$ref": "common.schema.json#/$defs/integerOrNull"
+          },
+          "on_behalf_of": {
+            "$ref": "common.schema.json#/$defs/stringOrNull"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "type",
+                "label",
+                "required",
+                "value",
+                "filled_at"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "type": {
+                  "enum": [
+                    "DATE",
+                    "INITIALS",
+                    "CHECKBOX",
+                    "TEXT"
+                  ]
+                },
+                "label": {
+                  "$ref": "common.schema.json#/$defs/stringOrNull"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "value": {
+                  "$ref": "common.schema.json#/$defs/stringOrNull"
+                },
+                "filled_at": {
+                  "$ref": "common.schema.json#/$defs/timestampOrNull"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "revisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "number",
+          "kind",
+          "sha256",
+          "signer_id",
+          "created_at"
+        ],
+        "properties": {
+          "number": {
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "PREPARED",
+              "SIGNED",
+              "FINAL"
+            ]
+          },
+          "sha256": {
+            "$ref": "common.schema.json#/$defs/sha256"
+          },
+          "signer_id": {
+            "$ref": "common.schema.json#/$defs/uuidOrNull"
+          },
+          "created_at": {
+            "$ref": "common.schema.json#/$defs/timestamp"
+          }
+        }
+      }
+    },
+    "chain": {
+      "anyOf": [
+        {
+          "description": "The evidence log's hash chain recomputed at export time (community export only).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ok",
+            "events",
+            "head",
+            "broken_at",
+            "reason"
+          ],
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "events": {
+              "type": "integer"
+            },
+            "head": {
+              "type": "string"
+            },
+            "broken_at": {
+              "$ref": "common.schema.json#/$defs/integerOrNull"
+            },
+            "reason": {
+              "$ref": "common.schema.json#/$defs/stringOrNull"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "final",
+        "evidence_pdf",
+        "evidence_json"
+      ],
+      "properties": {
+        "final": {
+          "$ref": "common.schema.json#/$defs/fileRefOrNull"
+        },
+        "evidence_pdf": {
+          "$ref": "common.schema.json#/$defs/fileRefOrNull"
+        },
+        "evidence_json": {
+          "$ref": "common.schema.json#/$defs/fileRefOrNull"
+        }
+      }
+    }
+  }
+}

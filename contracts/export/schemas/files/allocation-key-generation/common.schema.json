@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/allocation-key-generation/common.schema.json",
+  "title": "Shared definitions of the allocation-key-generation part's files",
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "decimal": {
+      "description": "An amount or a quantity as stored, in plain decimal notation (text, every digit kept).",
+      "type": "string",
+      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+    },
+    "json": {
+      "description": "A JSON value as the annex stores it (free-form)."
+    },
+    "fileRef": {
+      "description": "A stored file. `path` is its place in the archive, null when its object is missing or lives where the export cannot read it (`file_missing`).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "file_missing"
+      ],
+      "properties": {
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "file_missing": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

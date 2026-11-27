@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/crm/sharing-operations.schema.json",
+  "title": "crm/sharing-operations.json item",
+  "description": "Community export: a sharing operation, its municipalities (NIS codes) and the keys it applied.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "type",
+    "is_public",
+    "municipalities",
+    "keys",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "name": {
+      "type": "string"
+    },
+    "type": {
+      "type": "integer"
+    },
+    "is_public": {
+      "type": "boolean"
+    },
+    "municipalities": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      }
+    },
+    "keys": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "allocation_key",
+          "start_date",
+          "end_date",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "allocation_key": {
+            "$ref": "common.schema.json#/$defs/refOrNull"
+          },
+          "start_date": {
+            "$ref": "common.schema.json#/$defs/dateOrNull"
+          },
+          "end_date": {
+            "$ref": "common.schema.json#/$defs/dateOrNull"
+          },
+          "status": {
+            "description": "1 approved, 2 pending, 3 rejected",
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestampOrNull"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestampOrNull"
+    }
+  }
+}

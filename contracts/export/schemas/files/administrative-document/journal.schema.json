@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/administrative-document/journal.schema.json",
+  "title": "administrative-document/journal.json item",
+  "description": "Community export: one `status_event` row of the community, as stored (minus `id_community`, the scope), codes by name.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "subject_type",
+    "subject_id",
+    "from_status",
+    "to_status",
+    "from_step",
+    "to_step",
+    "is_corrective",
+    "actor_id",
+    "occurred_at",
+    "context_json"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "subject_type": {
+      "anyOf": [
+        {
+          "enum": [
+            "DOCUMENT",
+            "DOSSIER"
+          ]
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "description": "SubjectType by name (a retired code keeps its number)."
+    },
+    "subject_id": {
+      "type": "integer"
+    },
+    "from_status": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "to_status": {
+      "type": "integer"
+    },
+    "from_step": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "to_step": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "is_corrective": {
+      "type": "boolean"
+    },
+    "actor_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "occurred_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "context_json": {
+      "$ref": "common.schema.json#/$defs/json"
+    }
+  }
+}

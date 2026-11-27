@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/simulation-key/iteration-results.schema.json",
+  "title": "simulation-key/iteration-results.json item",
+  "description": "Community export: one `simulation_iteration_result` row of the community, as stored (minus `id_community`, the scope), codes by name.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "id_key_result",
+    "number",
+    "energy_allocated_percentage",
+    "consumption_total",
+    "energy_allocated_total",
+    "energy_allocated_consumed_total",
+    "residual_volume_total",
+    "surplus_total",
+    "sharing_rate_total",
+    "self_sufficiency_rate_total",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "id_key_result": {
+      "type": "integer"
+    },
+    "number": {
+      "type": "integer"
+    },
+    "energy_allocated_percentage": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "consumption_total": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "energy_allocated_total": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "energy_allocated_consumed_total": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "residual_volume_total": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "surplus_total": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sharing_rate_total": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "self_sufficiency_rate_total": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    }
+  }
+}

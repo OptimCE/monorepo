@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://optimce.be/contracts/export/files/billing/my-invoices.schema.json",
+  "title": "billing/my-invoices.json item",
+  "description": "User export: `/invoices/mine` in each community where a member is linked to the requester (credit notes and producer statements included), each document as `GET /invoices/{id}` shows it, with its payments (`GET /invoices/{id}/payments`) and its PDF.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id_community",
+    "community",
+    "id",
+    "id_billing_run",
+    "id_member",
+    "type",
+    "status",
+    "number",
+    "currency",
+    "subtotal",
+    "vat_rate",
+    "vat_amount",
+    "total",
+    "structured_comm",
+    "issued_at",
+    "due_date",
+    "pdf_ready",
+    "lines",
+    "payments",
+    "file"
+  ],
+  "properties": {
+    "id_community": {
+      "type": "integer"
+    },
+    "community": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "id": {
+      "type": "integer"
+    },
+    "id_billing_run": {
+      "type": "integer"
+    },
+    "id_member": {
+      "type": "integer"
+    },
+    "type": {
+      "type": "integer"
+    },
+    "status": {
+      "type": "integer"
+    },
+    "number": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "currency": {
+      "type": "string"
+    },
+    "subtotal": {
+      "$ref": "common.schema.json#/$defs/decimal"
+    },
+    "vat_rate": {
+      "$ref": "common.schema.json#/$defs/decimal"
+    },
+    "vat_amount": {
+      "$ref": "common.schema.json#/$defs/decimal"
+    },
+    "total": {
+      "$ref": "common.schema.json#/$defs/decimal"
+    },
+    "structured_comm": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "issued_at": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "due_date": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/date"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "pdf_ready": {
+      "type": "boolean"
+    },
+    "lines": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "ean",
+              "direction",
+              "measure",
+              "quantity_kwh",
+              "unit_price",
+              "amount",
+              "description"
+            ],
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "ean": {
+                "type": "string"
+              },
+              "direction": {
+                "type": "integer"
+              },
+              "measure": {
+                "type": "integer"
+              },
+              "quantity_kwh": {
+                "$ref": "common.schema.json#/$defs/decimal"
+              },
+              "unit_price": {
+                "$ref": "common.schema.json#/$defs/decimal"
+              },
+              "amount": {
+                "$ref": "common.schema.json#/$defs/decimal"
+              },
+              "description": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "payments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "amount",
+          "currency",
+          "method",
+          "reference",
+          "paid_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "amount": {
+            "$ref": "common.schema.json#/$defs/decimal"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "method": {
+            "type": "integer"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "paid_at": {
+            "$ref": "common.schema.json#/$defs/timestamp"
+          }
+        }
+      }
+    },
+    "file": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/fileRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

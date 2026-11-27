@@ -241,6 +241,20 @@ services:
       - STORAGE_BUCKET=${STORAGE_BUCKET:-crm-files}
       - TEMPLATES_BUCKET=${TEMPLATES_BUCKET:-optimce-templates}
       - OUTPUT_BUCKET=${OUTPUT_BUCKET:-optimce-documents}
+      # Data export (contracts/export/README.md §4): one account per producing
+      # service plus the worker and the download signer. provision.sh refuses
+      # to run without every secret.
+      - EXPORT_DOCUMENT_BUCKETS=${STORAGE_BUCKET:-crm-files} ${OUTPUT_BUCKET:-optimce-documents}
+      - EXPORT_CRM_SECRET=${EXPORT_CRM_SECRET:-}
+      - EXPORT_SIGNATURE_SECRET=${EXPORT_SIGNATURE_SECRET:-}
+      - EXPORT_ADMINISTRATIVE_DOCUMENT_SECRET=${EXPORT_ADMINISTRATIVE_DOCUMENT_SECRET:-}
+      - EXPORT_BILLING_SECRET=${EXPORT_BILLING_SECRET:-}
+      - EXPORT_NEWS_BOARD_SECRET=${EXPORT_NEWS_BOARD_SECRET:-}
+      - EXPORT_SIMULATION_KEY_SECRET=${EXPORT_SIMULATION_KEY_SECRET:-}
+      - EXPORT_ALLOCATION_KEY_GENERATION_SECRET=${EXPORT_ALLOCATION_KEY_GENERATION_SECRET:-}
+      - EXPORT_LIVE_DATA_SECRET=${EXPORT_LIVE_DATA_SECRET:-}
+      - EXPORT_WORKER_SECRET=${EXPORT_WORKER_SECRET:-}
+      - EXPORT_DOWNLOAD_SECRET=${EXPORT_DOWNLOAD_SECRET:-}
     entrypoint: >
       /bin/sh -c "
       sleep 5;
@@ -251,6 +265,7 @@ services:
       mc cp --recursive /templates/billing local/$${TEMPLATES_BUCKET:-optimce-templates}/;
       mc cp --recursive /templates-admin/administrative-document local/$${TEMPLATES_BUCKET:-optimce-templates}/;
       mc cp --recursive /templates-signature/signature local/$${TEMPLATES_BUCKET:-optimce-templates}/;
+      bash /export/provision.sh || exit 1;
       exit 0;
       "
     volumes:
@@ -267,6 +282,7 @@ services:
       - ./billing/document-templates:/templates:ro
       - ./administrative-document/document-templates:/templates-admin:ro
       - ./signature/document-templates:/templates-signature:ro
+      - ./minio/export:/export:ro
     networks:
       - backend
 
@@ -274,12 +290,14 @@ services:
     profiles: ["dev"]
     image: nats:2.10-alpine
     restart: unless-stopped
-    command: ["-js", "-m", "8222", "-sd", "/data"]
+    # nats.conf only raises max_payload (see the file); the rest stays on flags.
+    command: ["-c", "/etc/nats/optimce.conf", "-js", "-m", "8222", "-sd", "/data"]
     ports:
       - "8094:4222"
       - "8095:8222"
     volumes:
       - nats_data:/data
+      - ./nats/nats.conf:/etc/nats/optimce.conf:ro
     networks:
       - backend
     healthcheck:
@@ -386,10 +404,15 @@ services:
   # public de Wallonie, Paradigm.Brussels, Digitaal Vlaanderen.
   best-address:
     profiles: ["dev"]
-    # 2026-35 = the ISO week-35 2026 extract, published 2026-08-31. `latest`
+    # 2026-47 = the ISO week-47 2026 extract, published 2026-11-23. `latest`
     # pointed at this same digest when it was pinned, verified against the
-    # registry with `docker buildx imagetools inspect`.
-    image: bosa/opendata-best-webapi:2026-35@sha256:371165f3e370e3d8476202bacea4c74bcbc8a02f944671b968826bcd64b6cf18
+    # registry.
+    #
+    # THE PIN EXPIRES: the publisher keeps only the last ten weekly tags on Docker
+    # Hub, digests included (2026-35 was gone on 2026-11-25). A machine that holds
+    # the image keeps working; a new one cannot pull it. Move the pin at least
+    # every ten weeks, here and in OptimCE/production.
+    image: bosa/opendata-best-webapi:2026-47@sha256:395797cb6d17bd267941b9e6ac16dda6b5d561d4e1dc3633136c15ad550f9320
     restart: unless-stopped
     environment:
       - SERVER_PORT=8080
@@ -782,6 +805,25 @@ services:
       # boot as annexes_services:catalog_loaded. Values: see .env.dev.
       - ANNEX_CATALOG_ENABLE=${ANNEX_CATALOG_ENABLE:-}
       - ANNEX_CATALOG_DISABLE=${ANNEX_CATALOG_DISABLE:-}
+      # The data export (contracts/export/README.md). The API announces each new export
+      # on NATS, in the background: one made while NATS is away waits for the worker's
+      # sweep. It signs download URLs with the export-download account, which can only
+      # read archives/ (minio/export/provision.sh), for MinIO as the BROWSER reaches it:
+      # signing makes no network call.
+      - NATS_URL=nats://nats:4222
+      - EXPORT_DOWNLOAD_ACCESS_KEY=export-download
+      - EXPORT_DOWNLOAD_SECRET_KEY=${EXPORT_DOWNLOAD_SECRET:-}
+      - EXPORT_DOWNLOAD_PUBLIC_ENDPOINT=${MINIO_PUBLIC_ENDPOINT}
+      # The services asked for a part of every export. Only those whose handler exists: a
+      # listed service that never answers fails every export (3 x 30 min). Phases 4 and 6 of
+      # the data export add theirs; the code's default is the full V1 list.
+      - EXPORT_SERVICES=${EXPORT_SERVICES:-crm,signature,administrative-document,billing,news-board,simulation-key,allocation-key-generation,live-data}
+      # The `crm` part of every export is written by this process, with the export-crm
+      # account: it may only write, read and delete under exports/parts/*/crm/.
+      - EXPORT_STORAGE_ENDPOINT=${STORAGE_API_URL}
+      - EXPORT_STORAGE_REGION=us-east-1
+      - EXPORT_STORAGE_ACCESS_KEY=export-crm
+      - EXPORT_STORAGE_SECRET_KEY=${EXPORT_CRM_SECRET:-}
     volumes:
       - ./reference:/app/reference:ro
     # Loopback-only. crm-backend performs NO authentication of its own — it
@@ -854,6 +896,55 @@ services:
       nats:
         condition: service_healthy
 
+  # The data export's worker (crm-backend/src/export-worker.ts, contracts/export/README.md):
+  # starts each export, asks every service for its part over NATS (stream EXPORTS), assembles
+  # the ZIP in a stream into MinIO, notifies the requester and expires the archives. Same image
+  # as crm-backend, its own process: the API never assembles a ZIP. Its storage account is
+  # export-worker (minio/export/provision.sh): it reads `exports` and both document buckets and
+  # writes archives/ only.
+  crm-export-worker:
+    profiles: ["dev"]
+    build:
+      context: crm-backend
+      dockerfile: Dockerfile.dev
+    command: npm run export-worker:dev
+    restart: unless-stopped
+    environment:
+      - MICROSERVICE_NAME=crm-export-worker
+      - REMOTE_LOGGING=${REMOTE_LOGGING}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=crm_svc
+      - DB_PASSWORD=${CRM_DB_PASSWORD}
+      - DB_NAME=crm_db
+      - REGULATORS_CONFIG_PATH=/app/reference/regulators.json
+      - NATS_URL=nats://nats:4222
+      - EXPORT_STORAGE_ENDPOINT=${STORAGE_API_URL}
+      - EXPORT_STORAGE_REGION=us-east-1
+      - EXPORT_STORAGE_ACCESS_KEY=export-worker
+      - EXPORT_STORAGE_SECRET_KEY=${EXPORT_WORKER_SECRET:-}
+      - EXPORT_DOCUMENT_BUCKETS=${STORAGE_BUCKET:-crm-files} ${OUTPUT_BUCKET:-optimce-documents}
+      - EXPORT_RETENTION_DAYS=${EXPORT_RETENTION_DAYS:-7}
+    volumes:
+      - ./reference:/app/reference:ro
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "find /tmp/export-worker.alive -mmin -3 | grep -q . || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 30s
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+      minio-init:
+        condition: service_completed_successfully
+      nats:
+        condition: service_healthy
+
   allocation-key-generation:
     profiles: ["dev"]
     build:
@@ -879,6 +970,13 @@ services:
       # silent no-op: core/realtime/bus.py never raises and never blocks a write.
       - REALTIME_ENABLED=${REALTIME_ENABLED}
       - REALTIME_REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
+      # Data export: the API answers the `allocation-key-generation` part with its own
+      # account (writes exports/parts/*/allocation-key-generation/* only), never with the
+      # storage account above.
+      - EXPORT_STORAGE_ENDPOINT=${STORAGE_API_URL}
+      - EXPORT_STORAGE_REGION=us-east-1
+      - EXPORT_STORAGE_ACCESS_KEY=export-allocation-key-generation
+      - EXPORT_STORAGE_SECRET_KEY=${EXPORT_ALLOCATION_KEY_GENERATION_SECRET:-}
     ports:
       - "8002:8000"
     networks:
@@ -978,6 +1076,12 @@ services:
       # silent no-op: core/realtime/bus.py never raises and never blocks a write.
       - REALTIME_ENABLED=${REALTIME_ENABLED}
       - REALTIME_REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
+      # Data export: the API answers the `simulation-key` part with its own account (writes
+      # exports/parts/*/simulation-key/* only), never with the storage account above.
+      - EXPORT_STORAGE_ENDPOINT=${STORAGE_API_URL}
+      - EXPORT_STORAGE_REGION=us-east-1
+      - EXPORT_STORAGE_ACCESS_KEY=export-simulation-key
+      - EXPORT_STORAGE_SECRET_KEY=${EXPORT_SIMULATION_KEY_SECRET:-}
     ports:
       - "8003:8000"
     networks:
@@ -1066,6 +1170,14 @@ services:
       # silent no-op: core/realtime/bus.py never raises and never blocks a write.
       - REALTIME_ENABLED=${REALTIME_ENABLED}
       - REALTIME_REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
+      # Data export: the API answers the `news-board` part, its only use of NATS (connected
+      # in the background, never a boot failure), with its own account (writes
+      # exports/parts/*/news-board/* only).
+      - NATS_URL=nats://nats:4222
+      - EXPORT_STORAGE_ENDPOINT=${STORAGE_API_URL}
+      - EXPORT_STORAGE_REGION=us-east-1
+      - EXPORT_STORAGE_ACCESS_KEY=export-news-board
+      - EXPORT_STORAGE_SECRET_KEY=${EXPORT_NEWS_BOARD_SECRET:-}
     ports:
       - "8004:8000"
     networks:
@@ -1110,6 +1222,12 @@ services:
       # silent no-op: core/realtime/bus.py never raises and never blocks a write.
       - REALTIME_ENABLED=${REALTIME_ENABLED}
       - REALTIME_REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
+      # Data export: the API answers the `billing` part with its own account (writes
+      # exports/parts/*/billing/* only), never with the storage account above.
+      - EXPORT_STORAGE_ENDPOINT=${STORAGE_API_URL}
+      - EXPORT_STORAGE_REGION=us-east-1
+      - EXPORT_STORAGE_ACCESS_KEY=export-billing
+      - EXPORT_STORAGE_SECRET_KEY=${EXPORT_BILLING_SECRET:-}
     volumes:
       - ./reference:/app/reference:ro
     ports:
@@ -1174,6 +1292,12 @@ services:
       # credentials. Either empty: no address, the hub shows none.
       - INBOUND_ADDRESS_TEMPLATE=${INBOUND_ADDRESS_TEMPLATE:-}
       - INBOUND_IMAP_HOST=${INBOUND_IMAP_HOST:-}
+      # Data export: the API answers the `administrative-document` part with its own account
+      # (writes exports/parts/*/administrative-document/* only), never with the one above.
+      - EXPORT_STORAGE_ENDPOINT=${STORAGE_API_URL}
+      - EXPORT_STORAGE_REGION=us-east-1
+      - EXPORT_STORAGE_ACCESS_KEY=export-administrative-document
+      - EXPORT_STORAGE_SECRET_KEY=${EXPORT_ADMINISTRATIVE_DOCUMENT_SECRET:-}
     volumes:
       - ./reference:/app/reference:ro
     ports:
@@ -1294,6 +1418,12 @@ services:
       - STEP_UP_MAX_AGE_SECONDS=${SIGNATURE_STEP_UP_MAX_AGE_SECONDS:-300}
       - REALTIME_ENABLED=${REALTIME_ENABLED}
       - REALTIME_REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
+      # Data export: the API answers the `signature` part with its own account (writes
+      # exports/parts/*/signature/* only), never with the storage account above.
+      - EXPORT_STORAGE_ENDPOINT=${STORAGE_API_URL}
+      - EXPORT_STORAGE_REGION=us-east-1
+      - EXPORT_STORAGE_ACCESS_KEY=export-signature
+      - EXPORT_STORAGE_SECRET_KEY=${EXPORT_SIGNATURE_SECRET:-}
     ports:
       - "8009:8000"
     networks:
@@ -1691,6 +1821,14 @@ services:
       - BROKER_PUBLIC_HOST=${LIVE_DATA_BROKER_PUBLIC_HOST}
       - BROKER_PUBLIC_PORT=${LIVE_DATA_BROKER_PUBLIC_PORT}
       - BROKER_PUBLIC_TLS=${LIVE_DATA_BROKER_PUBLIC_TLS}
+      # Data export: the API's only use of NATS, connected in the background (no
+      # depends_on: a broker that is down must not hold the API back). It answers the
+      # `live-data` part with its own account (writes exports/parts/*/live-data/* only).
+      - NATS_URL=nats://nats:4222
+      - EXPORT_STORAGE_ENDPOINT=${STORAGE_API_URL}
+      - EXPORT_STORAGE_REGION=us-east-1
+      - EXPORT_STORAGE_ACCESS_KEY=export-live-data
+      - EXPORT_STORAGE_SECRET_KEY=${EXPORT_LIVE_DATA_SECRET:-}
     ports:
       - "8008:8000"
     networks:
